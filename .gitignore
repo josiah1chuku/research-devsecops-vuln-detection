@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+data/*.csv
+data/*.json
+data/*.pkl
+checkpoints/*.pt
+results/*.png
+mlruns/
