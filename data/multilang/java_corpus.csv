@@ -1,0 +1,4297 @@
+func_src,label,cve_id,cwe,repo,commit,language
+"
+  public ExitCode runWithoutHelp(CommandRunnerParams params)
+      throws IOException, InterruptedException {
+
+    if (saveFilename != null && loadFilename != null) {
+      params.getConsole().printErrorText(""Can't use both --load and --save"");
+      return ExitCode.COMMANDLINE_ERROR;
+    }
+
+    if (saveFilename != null) {
+      invalidateChanges(params);
+      RemoteDaemonicParserState state = params.getParser().storeParserState(params.getCell());
+      try (FileOutputStream fos = new FileOutputStream(saveFilename);
+          ZipOutputStream zipos = new ZipOutputStream(fos)) {
+        zipos.putNextEntry(new ZipEntry(""parser_data""));
+        try (ObjectOutputStream oos = new ObjectOutputStream(zipos)) {
+          oos.writeObject(state);
+        }
+      }
+    } else if (loadFilename != null) {
+      try (FileInputStream fis = new FileInputStream(loadFilename);
+          ZipInputStream zipis = new ZipInputStream(fis)) {
+        ZipEntry entry = zipis.getNextEntry();
+        Preconditions.checkState(entry.getName().equals(""parser_data""));
+        try (ObjectInputStream ois = new ObjectInputStream(zipis)) {
+          RemoteDaemonicParserState state;
+          try {
+            state = (RemoteDaemonicParserState) ois.readObject();
+          } catch (ClassNotFoundException e) {
+            params.getConsole().printErrorText(""Invalid file format"");
+            return ExitCode.COMMANDLINE_ERROR;
+          }
+          params.getParser().restoreParserState(state, params.getCell());
+        }
+      }
+      invalidateChanges(params);
+
+      ParserConfig configView = params.getBuckConfig().getView(ParserConfig.class);
+      if (configView.isParserCacheMutationWarningEnabled()) {
+        params",1,CVE-2018-6331,CWE-502,facebook/buck,8c5500981812564877bd122c0f8fab48d3528ddf,java
+" else if (loadFilename != null) {
+      try (FileInputStream fis = new FileInputStream(loadFilename);
+          ZipInputStream zipis = new ZipInputStream(fis)) {
+        ZipEntry entry = zipis.getNextEntry();
+        Preconditions.checkState(entry.getName().equals(""parser_data""));
+        try (ObjectInputStream ois = new ObjectInputStream(zipis)) {
+          RemoteDaemonicParserState state;
+          try {
+            state = (RemoteDaemonicParserState) ois.readObject();
+          } catch (ClassNotFoundException e) {
+            params.getConsole().printErrorText(""Invalid file format"");
+            return ExitCode.COMMANDLINE_ERROR;
+          }
+          params.getParser().restoreParserState(state, params.getCell());
+        }
+      }
+      invalidateChanges(params);
+
+      ParserConfig configView = params.getBuckConfig().getView(ParserConfig.class);
+      if (configView.isParserCacheMutationWarningEnabled()) {
+        params
+            .getConsole()
+            .printErrorText(
+                params
+                    .getConsole()
+                    .getAnsi()
+                    .asWarningText(
+                        ""WARNING: Buck injected a parser state that may not match the local state.""));
+      }
+    }
+
+    return ExitCode.SUCCESS;
+  }
+
+  private void invalidateChanges(CommandRunnerParams params) throws IOException {
+    if (changesPath == null) {
+      return;
+    }
+    try (FileInputStream is = new FileInputStream(changesPath)) {
+      JsonNode responseNode = ObjectMappers.READER.readTree(is);",1,CVE-2018-6331,CWE-502,facebook/buck,8c5500981812564877bd122c0f8fab48d3528ddf,java
+"
+
+  private void invalidateChanges(CommandRunnerParams params) throws IOException {
+    if (changesPath == null) {
+      return;
+    }
+    try (FileInputStream is = new FileInputStream(changesPath)) {
+      JsonNode responseNode = ObjectMappers.READER.readTree(is);
+      Iterator<JsonNode> iterator = responseNode.elements();
+      while (iterator.hasNext()) {
+        JsonNode item = iterator.next();
+        String path = item.get(""path"").asText();
+        String status = item.get(""status"").asText();
+
+        boolean isAdded = false;
+        boolean isRemoved = false;
+        if (status.equals(""A"") || status.equals(""?"")) {
+          isAdded = true;
+        } else if (status.equals(""R"") || status.equals(""!"")) {
+          isRemoved = true;
+        }
+        Path fullPath = params.getCell().getRoot().resolve(path).normalize();
+        params.getParser().invalidateBasedOnPath(fullPath, isAdded || isRemoved);
+      }
+    }
+  }
+
+  @Override
+  public String getShortDescription() {
+    return ""Load and save state of the parser cache"";
+  }
+
+  @Override
+  public boolean isReadOnly() {
+    return false;
+  }
+}",1,CVE-2018-6331,CWE-502,facebook/buck,8c5500981812564877bd122c0f8fab48d3528ddf,java
+"
+  public void testSaveAndLoad() throws IOException {
+    assumeTrue(AppleNativeIntegrationTestUtils.isApplePlatformAvailable(ApplePlatform.MACOSX));
+
+    ProjectWorkspace workspace =
+        TestDataHelper.createProjectWorkspaceForScenario(this, ""parser_with_cell"", tmp);
+    workspace.setUp();
+
+    // Warm the parser cache.
+    TestContext context = new TestContext();
+    ProcessResult runBuckResult =
+        workspace.runBuckdCommand(context, ""query"", ""deps(//Apps:TestAppsLibrary)"");
+    runBuckResult.assertSuccess();
+    assertThat(
+        runBuckResult.getStdout(),
+        Matchers.containsString(
+            ""//Apps:TestAppsLibrary\n""
+                + ""//Libraries/Dep1:Dep1_1\n""
+                + ""//Libraries/Dep1:Dep1_2\n""
+                + ""bar//Dep2:Dep2""));
+
+    // Save the parser cache to a file.
+    NamedTemporaryFile tempFile = new NamedTemporaryFile(""parser_data"", null);
+    runBuckResult =
+        workspace.runBuckdCommand(context, ""parser-cache"", ""--save"", tempFile.get().toString());
+    runBuckResult.assertSuccess();
+
+    // Write an empty content to Apps/BUCK.
+    Path path = tmp.getRoot().resolve(""Apps/BUCK"");
+    byte[] data = {};
+    Files.write(path, data);
+
+    context = new TestContext();
+    // Load the parser cache to a new buckd context.
+    runBuckResult =
+        workspace.runBuckdCommand(context, ""parser-cache"", ""--load"", tempFile.get().toString());
+    runBuckResult.assertSuccess();
+
+    // Perform the query again. If we didn't load the parser cache, this call would fail because
+    // Apps/BUCK is empty.",1,CVE-2018-6331,CWE-502,facebook/buck,8c5500981812564877bd122c0f8fab48d3528ddf,java
+"
+  public void testInvalidate() throws IOException {
+    ProjectWorkspace workspace =
+        TestDataHelper.createProjectWorkspaceForScenario(this, ""parser_with_cell"", tmp);
+    workspace.setUp();
+
+    // Warm the parser cache.
+    TestContext context = new TestContext();
+    ProcessResult runBuckResult =
+        workspace.runBuckdCommand(context, ""query"", ""deps(//Apps:TestAppsLibrary)"");
+    runBuckResult.assertSuccess();
+    assertThat(
+        runBuckResult.getStdout(),
+        Matchers.containsString(
+            ""//Apps:TestAppsLibrary\n""
+                + ""//Libraries/Dep1:Dep1_1\n""
+                + ""//Libraries/Dep1:Dep1_2\n""
+                + ""bar//Dep2:Dep2""));
+
+    // Save the parser cache to a file.
+    NamedTemporaryFile tempFile = new NamedTemporaryFile(""parser_data"", null);
+    runBuckResult =
+        workspace.runBuckdCommand(context, ""parser-cache"", ""--save"", tempFile.get().toString());
+    runBuckResult.assertSuccess();
+
+    // Write an empty content to Apps/BUCK.
+    Path path = tmp.getRoot().resolve(""Apps/BUCK"");
+    byte[] data = {};
+    Files.write(path, data);
+
+    // Write an empty content to Apps/BUCK.
+    Path invalidationJsonPath = tmp.getRoot().resolve(""invalidation-data.json"");
+    String jsonData = ""[{\""path\"":\""Apps/BUCK\"",\""status\"":\""M\""}]"";
+    Files.write(invalidationJsonPath, jsonData.getBytes(StandardCharsets.UTF_8));
+
+    context = new TestContext();
+    // Load the parser cache to a new buckd context.
+    runBuckResult =
+        workspace.runBuckdCommand(
+            context,",1,CVE-2018-6331,CWE-502,facebook/buck,8c5500981812564877bd122c0f8fab48d3528ddf,java
+"
+
+    public BeanDeserializerFactory(DeserializerFactoryConfig config) {
+        super(config);
+    }
+    
+    /**
+     * Method used by module registration functionality, to construct a new bean
+     * deserializer factory
+     * with different configuration settings.
+     */
+    @Override
+    public DeserializerFactory withConfig(DeserializerFactoryConfig config)
+    {
+        if (_factoryConfig == config) {
+            return this;
+        }
+        /* 22-Nov-2010, tatu: Handling of subtypes is tricky if we do immutable-with-copy-ctor;
+         *    and we pretty much have to here either choose between losing subtype instance
+         *    when registering additional deserializers, or losing deserializers.
+         *    Instead, let's actually just throw an error if this method is called when subtype
+         *    has not properly overridden this method; this to indicate problem as soon as possible.
+         */
+        if (getClass() != BeanDeserializerFactory.class) {
+            throw new IllegalStateException(""Subtype of BeanDeserializerFactory (""+getClass().getName()
+                    +"") has not properly overridden method 'withAdditionalDeserializers': can not instantiate subtype with ""
+                    +""additional deserializer definitions"");
+        }
+        return new BeanDeserializerFactory(config);
+    }
+    
+    /*
+    /**********************************************************
+    /* DeserializerFactory API implementation
+    /**********************************************************
+     */
+
+    /**
+     * Method that {@link DeserializerCache}s call to create a new
+     * deserializer for types other than Collections, Maps, arrays and",1,CVE-2018-14718,CWE-502,FasterXML/jackson-databind,87d29af25e82a249ea15858e2d4ecbf64091db44,java
+"
+    public DeserializerFactory withConfig(DeserializerFactoryConfig config)
+    {
+        if (_factoryConfig == config) {
+            return this;
+        }
+        /* 22-Nov-2010, tatu: Handling of subtypes is tricky if we do immutable-with-copy-ctor;
+         *    and we pretty much have to here either choose between losing subtype instance
+         *    when registering additional deserializers, or losing deserializers.
+         *    Instead, let's actually just throw an error if this method is called when subtype
+         *    has not properly overridden this method; this to indicate problem as soon as possible.
+         */
+        if (getClass() != BeanDeserializerFactory.class) {
+            throw new IllegalStateException(""Subtype of BeanDeserializerFactory (""+getClass().getName()
+                    +"") has not properly overridden method 'withAdditionalDeserializers': can not instantiate subtype with ""
+                    +""additional deserializer definitions"");
+        }
+        return new BeanDeserializerFactory(config);
+    }
+    
+    /*
+    /**********************************************************
+    /* DeserializerFactory API implementation
+    /**********************************************************
+     */
+
+    /**
+     * Method that {@link DeserializerCache}s call to create a new
+     * deserializer for types other than Collections, Maps, arrays and
+     * enums.
+     */
+    @Override
+    public JsonDeserializer<Object> createBeanDeserializer(DeserializationContext ctxt,
+            JavaType type, BeanDescription beanDesc)
+        throws JsonMappingException
+    {
+        final DeserializationConfig config = ctxt.getConfig();
+        // We may also have custom overrides:
+        JsonDeserializer<Object> custom = _findCustomBeanDeserializer(type, config, beanDesc);
+        if (custom != null) {",1,CVE-2018-14718,CWE-502,FasterXML/jackson-databind,87d29af25e82a249ea15858e2d4ecbf64091db44,java
+"
+    public JsonDeserializer<Object> createBeanDeserializer(DeserializationContext ctxt,
+            JavaType type, BeanDescription beanDesc)
+        throws JsonMappingException
+    {
+        final DeserializationConfig config = ctxt.getConfig();
+        // We may also have custom overrides:
+        JsonDeserializer<Object> custom = _findCustomBeanDeserializer(type, config, beanDesc);
+        if (custom != null) {
+            return custom;
+        }
+        /* One more thing to check: do we have an exception type
+         * (Throwable or its sub-classes)? If so, need slightly
+         * different handling.
+         */
+        if (type.isThrowable()) {
+            return buildThrowableDeserializer(ctxt, type, beanDesc);
+        }
+        /* Or, for abstract types, may have alternate means for resolution
+         * (defaulting, materialization)
+         */
+        if (type.isAbstract()) {
+            // [JACKSON-41] (v1.6): Let's make it possible to materialize abstract types.
+            JavaType concreteType = materializeAbstractType(ctxt, type, beanDesc);
+            if (concreteType != null) {
+                /* important: introspect actual implementation (abstract class or
+                 * interface doesn't have constructors, for one)
+                 */
+                beanDesc = config.introspect(concreteType);
+                return buildBeanDeserializer(ctxt, concreteType, beanDesc);
+            }
+        }
+
+        // Otherwise, may want to check handlers for standard types, from superclass:
+        @SuppressWarnings(""unchecked"")
+        JsonDeserializer<Object> deser = (JsonDeserializer<Object>) findStdDeserializer(ctxt, type, beanDesc);
+        if (deser != null) {
+            return deser;
+        }
+",1,CVE-2018-14718,CWE-502,FasterXML/jackson-databind,87d29af25e82a249ea15858e2d4ecbf64091db44,java
+"
+
+	public WebXml getWebXml(FacesContext context) {
+		WebXml webXml = WebXml.getInstance(context);
+		if (null == webXml) {
+			throw new FacesException(
+					""Resources framework is not initialised, check web.xml for Filter configuration"");
+		}
+		return webXml;
+	}
+
+	public ResourceBuilderImpl() {
+		super();
+		_startTime = System.currentTimeMillis();
+		codec = new Codec();
+		renderers = new HashMap<String, ResourceRenderer>();
+		// append known renderers for extentions.
+		renderers.put("".gif"", new GifRenderer());
+		ResourceRenderer renderer = new JpegRenderer();
+		renderers.put("".jpeg"", renderer);
+		renderers.put("".jpg"", renderer);
+		renderers.put("".png"", new PngRenderer());
+		renderers.put("".js"", getScriptRenderer());
+		renderers.put("".css"", getStyleRenderer());
+		renderers.put("".log"", new LogfileRenderer());
+		renderers.put("".html"", new HTMLRenderer());
+		renderers.put("".xhtml"", new MimeRenderer(""application/xhtml+xml""));
+		renderers.put("".xml"", new MimeRenderer(""text/xml""));
+		renderers.put("".xcss"", new TemplateCSSRenderer());
+		renderers.put("".swf"", new MimeRenderer(""application/x-shockwave-flash""));
+	}
+
+	/**
+	 * @throws FacesException
+	 */
+	protected void registerResources() throws FacesException {
+		try {
+			ClassLoader loader = Thread.currentThread().getContextClassLoader();
+			Enumeration<URL> e = loader
+					.getResources(""META-INF/resources-config.xml"");",1,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+
+	public ResourceBuilderImpl() {
+		super();
+		_startTime = System.currentTimeMillis();
+		codec = new Codec();
+		renderers = new HashMap<String, ResourceRenderer>();
+		// append known renderers for extentions.
+		renderers.put("".gif"", new GifRenderer());
+		ResourceRenderer renderer = new JpegRenderer();
+		renderers.put("".jpeg"", renderer);
+		renderers.put("".jpg"", renderer);
+		renderers.put("".png"", new PngRenderer());
+		renderers.put("".js"", getScriptRenderer());
+		renderers.put("".css"", getStyleRenderer());
+		renderers.put("".log"", new LogfileRenderer());
+		renderers.put("".html"", new HTMLRenderer());
+		renderers.put("".xhtml"", new MimeRenderer(""application/xhtml+xml""));
+		renderers.put("".xml"", new MimeRenderer(""text/xml""));
+		renderers.put("".xcss"", new TemplateCSSRenderer());
+		renderers.put("".swf"", new MimeRenderer(""application/x-shockwave-flash""));
+	}
+
+	/**
+	 * @throws FacesException
+	 */
+	protected void registerResources() throws FacesException {
+		try {
+			ClassLoader loader = Thread.currentThread().getContextClassLoader();
+			Enumeration<URL> e = loader
+					.getResources(""META-INF/resources-config.xml"");
+			while (e.hasMoreElements()) {
+				URL resource = e.nextElement();
+				registerConfig(resource);
+			}
+		} catch (IOException e) {
+			throw new FacesException(e);
+		}
+	}
+",1,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	protected void registerResources() throws FacesException {
+		try {
+			ClassLoader loader = Thread.currentThread().getContextClassLoader();
+			Enumeration<URL> e = loader
+					.getResources(""META-INF/resources-config.xml"");
+			while (e.hasMoreElements()) {
+				URL resource = e.nextElement();
+				registerConfig(resource);
+			}
+		} catch (IOException e) {
+			throw new FacesException(e);
+		}
+	}
+
+	private void registerConfig(URL resourceConfig) {
+		try {
+			if (log.isDebugEnabled()) {
+				log.debug(""Process resources configuration file ""
+						+ resourceConfig.toExternalForm());
+			}
+
+			InputStream in = URLToStreamHelper.urlToStream(resourceConfig);
+			try {
+				Digester digester = new Digester();
+				digester.setValidating(false);
+				digester.setEntityResolver(new EntityResolver() {
+					// Dummi resolver - alvays do nothing
+					public InputSource resolveEntity(String publicId,
+							String systemId) throws SAXException, IOException {
+						return new InputSource(new StringReader(""""));
+					}
+				});
+				digester.setNamespaceAware(false);
+				digester.setUseContextClassLoader(true);
+				digester.push(this);
+				digester.addObjectCreate(""resource-config/resource"", ""class"",
+						JarResource.class);
+				digester.addObjectCreate(""resource-config/resource/renderer"",
+						""class"", HTMLRenderer.class);",1,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public UserResource(boolean cacheable, boolean session, String mime) {
+		super();		
+		setCacheable(cacheable);
+		setSessionAware(session);
+		setContentType(mime);
+	}
+	/**
+	 * @return Returns the contentType.
+	 */
+	public String getContentType(ResourceContext resourceContext) {
+		return contentType;
+	}
+	/**
+	 * @param contentType The contentType to set.
+	 */
+	public void setContentType(String contentType) {
+		this.contentType = contentType;
+	}
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#getDataToStore(javax.faces.context.FacesContext, java.lang.Object)
+	 */
+	public Object getDataToStore(FacesContext context, Object data) {
+		UriData dataToStore = null;
+		if (data instanceof ResourceComponent2) {
+			ResourceComponent2 resource = (ResourceComponent2) data;
+			dataToStore = new UriData();
+			dataToStore.value = resource.getValue();
+			dataToStore.createContent = UIComponentBase.saveAttachedState(context,resource.getCreateContentExpression());
+			if (data instanceof UIComponent) {
+				UIComponent component = (UIComponent) data;
+				ValueExpression expires = component.getValueExpression(""expires"");
+				if (null != expires) {
+					dataToStore.expires = UIComponentBase.saveAttachedState(context,expires);
+				}
+				ValueExpression lastModified = component.getValueExpression(""lastModified"");
+				if (null != lastModified) {
+					dataToStore.modified = UIComponentBase.saveAttachedState(context,lastModified);
+				}
+			}",1,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public String getContentType(ResourceContext resourceContext) {
+		return contentType;
+	}
+	/**
+	 * @param contentType The contentType to set.
+	 */
+	public void setContentType(String contentType) {
+		this.contentType = contentType;
+	}
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#getDataToStore(javax.faces.context.FacesContext, java.lang.Object)
+	 */
+	public Object getDataToStore(FacesContext context, Object data) {
+		UriData dataToStore = null;
+		if (data instanceof ResourceComponent2) {
+			ResourceComponent2 resource = (ResourceComponent2) data;
+			dataToStore = new UriData();
+			dataToStore.value = resource.getValue();
+			dataToStore.createContent = UIComponentBase.saveAttachedState(context,resource.getCreateContentExpression());
+			if (data instanceof UIComponent) {
+				UIComponent component = (UIComponent) data;
+				ValueExpression expires = component.getValueExpression(""expires"");
+				if (null != expires) {
+					dataToStore.expires = UIComponentBase.saveAttachedState(context,expires);
+				}
+				ValueExpression lastModified = component.getValueExpression(""lastModified"");
+				if (null != lastModified) {
+					dataToStore.modified = UIComponentBase.saveAttachedState(context,lastModified);
+				}
+			}
+		}
+		return dataToStore;
+	}
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#send(org.ajax4jsf.resource.ResourceContext)
+	 */
+	public void send(ResourceContext context) throws IOException {
+		UriData data = (UriData) restoreData(context);
+		FacesContext facesContext = FacesContext.getCurrentInstance();",1,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public void setContentType(String contentType) {
+		this.contentType = contentType;
+	}
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#getDataToStore(javax.faces.context.FacesContext, java.lang.Object)
+	 */
+	public Object getDataToStore(FacesContext context, Object data) {
+		UriData dataToStore = null;
+		if (data instanceof ResourceComponent2) {
+			ResourceComponent2 resource = (ResourceComponent2) data;
+			dataToStore = new UriData();
+			dataToStore.value = resource.getValue();
+			dataToStore.createContent = UIComponentBase.saveAttachedState(context,resource.getCreateContentExpression());
+			if (data instanceof UIComponent) {
+				UIComponent component = (UIComponent) data;
+				ValueExpression expires = component.getValueExpression(""expires"");
+				if (null != expires) {
+					dataToStore.expires = UIComponentBase.saveAttachedState(context,expires);
+				}
+				ValueExpression lastModified = component.getValueExpression(""lastModified"");
+				if (null != lastModified) {
+					dataToStore.modified = UIComponentBase.saveAttachedState(context,lastModified);
+				}
+			}
+		}
+		return dataToStore;
+	}
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#send(org.ajax4jsf.resource.ResourceContext)
+	 */
+	public void send(ResourceContext context) throws IOException {
+		UriData data = (UriData) restoreData(context);
+		FacesContext facesContext = FacesContext.getCurrentInstance();
+		if (null != data && null != facesContext ) {
+			// Send headers
+			ELContext elContext = facesContext.getELContext();
+//			if(data.expires != null){
+//				ValueExpression binding = (ValueExpression) UIComponentBase.restoreAttachedState(facesContext,data.expires);
+//				Date expires = (Date) binding.getValue(elContext);",1,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public MediaData() {
+	}
+	public Color getBackground() {
+		return Background;
+	}
+	public void setBackground(Color background) {
+		Background = background;
+	}
+	public Color getDrawColor() {
+		return DrawColor;
+	}
+	public void setDrawColor(Color drawColor) {
+		DrawColor = drawColor;
+	}
+	public Integer getHeight() {
+		return Height;
+	}
+	public void setHeight(Integer height) {
+		Height = height;
+	}
+	public Integer getWidth() {
+		return Width;
+	}
+	public void setWidth(Integer width) {
+		Width = width;
+	}
+}",1,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public Color getBackground() {
+		return Background;
+	}
+	public void setBackground(Color background) {
+		Background = background;
+	}
+	public Color getDrawColor() {
+		return DrawColor;
+	}
+	public void setDrawColor(Color drawColor) {
+		DrawColor = drawColor;
+	}
+	public Integer getHeight() {
+		return Height;
+	}
+	public void setHeight(Integer height) {
+		Height = height;
+	}
+	public Integer getWidth() {
+		return Width;
+	}
+	public void setWidth(Integer width) {
+		Width = width;
+	}
+}",1,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public void setBackground(Color background) {
+		Background = background;
+	}
+	public Color getDrawColor() {
+		return DrawColor;
+	}
+	public void setDrawColor(Color drawColor) {
+		DrawColor = drawColor;
+	}
+	public Integer getHeight() {
+		return Height;
+	}
+	public void setHeight(Integer height) {
+		Height = height;
+	}
+	public Integer getWidth() {
+		return Width;
+	}
+	public void setWidth(Integer width) {
+		Width = width;
+	}
+}",1,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+
+
+	public Integer getColor() {
+		return color;
+	}
+	public void setColor(Integer color) {
+		this.color = color;
+	}
+	public float getScale() {
+		return scale;
+	}
+	public void setScale(float scale) {
+		this.scale = scale;
+	}
+
+	public String getText() {
+		return text;
+	}
+	public void setText(String text) {
+		this.text = text;
+	}
+}",1,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public void setColor(Integer color) {
+		this.color = color;
+	}
+	public float getScale() {
+		return scale;
+	}
+	public void setScale(float scale) {
+		this.scale = scale;
+	}
+
+	public String getText() {
+		return text;
+	}
+	public void setText(String text) {
+		this.text = text;
+	}
+}",1,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public float getScale() {
+		return scale;
+	}
+	public void setScale(float scale) {
+		this.scale = scale;
+	}
+
+	public String getText() {
+		return text;
+	}
+	public void setText(String text) {
+		this.text = text;
+	}
+}",1,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public ResourceRenderer getRenderer() {
+		return _renderers[0];
+	}
+
+	public ResourceRenderer getRenderer(ResourceContext context) {
+		ImageData data = null;
+		
+		if (context != null) {
+			data = (ImageData) restoreData(context);
+		}
+		
+		ImageRenderer renderer = _renderers[null==data?0:data._format];
+		return renderer;
+	}
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#isCacheable()
+	 */
+	public boolean isCacheable() {
+		return false;
+	}
+	
+	public boolean isCacheable(ResourceContext resourceContext) {
+		ImageData data = (ImageData) restoreData(resourceContext);
+		return data.cacheable;
+	}
+
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#requireFacesContext()
+	 */
+	public boolean requireFacesContext() {
+		// work in context
+		return true;
+	}
+
+	
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#getDataToStore(javax.faces.context.FacesContext, java.lang.Object)
+	 */
+	protected Object getDataToStore(FacesContext context, Object data) {",1,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+
+	public ResourceRenderer getRenderer(ResourceContext context) {
+		ImageData data = null;
+		
+		if (context != null) {
+			data = (ImageData) restoreData(context);
+		}
+		
+		ImageRenderer renderer = _renderers[null==data?0:data._format];
+		return renderer;
+	}
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#isCacheable()
+	 */
+	public boolean isCacheable() {
+		return false;
+	}
+	
+	public boolean isCacheable(ResourceContext resourceContext) {
+		ImageData data = (ImageData) restoreData(resourceContext);
+		return data.cacheable;
+	}
+
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#requireFacesContext()
+	 */
+	public boolean requireFacesContext() {
+		// work in context
+		return true;
+	}
+
+	
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#getDataToStore(javax.faces.context.FacesContext, java.lang.Object)
+	 */
+	protected Object getDataToStore(FacesContext context, Object data) {
+		if (data instanceof UIPaint2D) {
+			UIPaint2D paint2D = (UIPaint2D) data;
+			ImageData dataToStore = new ImageData();",1,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public boolean isCacheable() {
+		return false;
+	}
+	
+	public boolean isCacheable(ResourceContext resourceContext) {
+		ImageData data = (ImageData) restoreData(resourceContext);
+		return data.cacheable;
+	}
+
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#requireFacesContext()
+	 */
+	public boolean requireFacesContext() {
+		// work in context
+		return true;
+	}
+
+	
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#getDataToStore(javax.faces.context.FacesContext, java.lang.Object)
+	 */
+	protected Object getDataToStore(FacesContext context, Object data) {
+		if (data instanceof UIPaint2D) {
+			UIPaint2D paint2D = (UIPaint2D) data;
+			ImageData dataToStore = new ImageData();
+			dataToStore._width = paint2D.getWidth();
+			dataToStore._height = paint2D.getHeight();
+			dataToStore._data = paint2D.getData();
+			
+			dataToStore._paint = UIComponentBase.saveAttachedState(context, paint2D.getPaint());
+			String format = paint2D.getFormat();
+			if(""jpeg"".equalsIgnoreCase(format)) {
+				dataToStore._format = 1;
+			} else if(""png"".equalsIgnoreCase(format)) {
+				dataToStore._format = 2;
+			}
+			
+			String bgColor = paint2D.getBgcolor();
+			try {",1,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public static JsonParser create() {
+		return new JsonParser();
+	}
+
+	/**
+	 * Creates a lazy implementation of the JSON parser.
+	 */
+	public static JsonParser createLazyOne() {
+		return new JsonParser().lazy(true);
+	}
+
+	private static final char[] T_RUE = new char[] {'r', 'u', 'e'};
+	private static final char[] F_ALSE = new char[] {'a', 'l', 's', 'e'};
+	private static final char[] N_ULL = new char[] {'u', 'l', 'l'};
+
+	/**
+	 * Map keys.
+	 */
+	public static final String KEYS = ""keys"";
+	/**
+	 * Array or map values.
+	 */
+	public static final String VALUES = ""values"";
+
+	protected int ndx = 0;
+	protected char[] input;
+	protected int total;
+	protected Path path;
+	protected boolean useAltPaths = Defaults.useAltPathsByParser;
+	protected boolean lazy = Defaults.lazy;
+	protected boolean looseMode = Defaults.loose;
+	protected Class rootType;
+	protected MapToBean mapToBean;
+	private boolean notFirstObject = false;
+
+	private final JsonAnnotationManager jsonAnnotationManager;
+
+	public JsonParser() {
+		this.text = new char[512];",1,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+	public static JsonParser createLazyOne() {
+		return new JsonParser().lazy(true);
+	}
+
+	private static final char[] T_RUE = new char[] {'r', 'u', 'e'};
+	private static final char[] F_ALSE = new char[] {'a', 'l', 's', 'e'};
+	private static final char[] N_ULL = new char[] {'u', 'l', 'l'};
+
+	/**
+	 * Map keys.
+	 */
+	public static final String KEYS = ""keys"";
+	/**
+	 * Array or map values.
+	 */
+	public static final String VALUES = ""values"";
+
+	protected int ndx = 0;
+	protected char[] input;
+	protected int total;
+	protected Path path;
+	protected boolean useAltPaths = Defaults.useAltPathsByParser;
+	protected boolean lazy = Defaults.lazy;
+	protected boolean looseMode = Defaults.loose;
+	protected Class rootType;
+	protected MapToBean mapToBean;
+	private boolean notFirstObject = false;
+
+	private final JsonAnnotationManager jsonAnnotationManager;
+
+	public JsonParser() {
+		this.text = new char[512];
+		this.jsonAnnotationManager = JsonAnnotationManager.get();
+	}
+
+	/**
+	 * Resets JSON parser, so it can be reused.
+	 */
+	protected void reset() {",1,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+
+	public JsonParser() {
+		this.text = new char[512];
+		this.jsonAnnotationManager = JsonAnnotationManager.get();
+	}
+
+	/**
+	 * Resets JSON parser, so it can be reused.
+	 */
+	protected void reset() {
+		this.ndx = 0;
+		this.textLen = 0;
+		this.path = new Path();
+		if (useAltPaths) {
+			path.altPath = new Path();
+		}
+
+		if (classMetadataName != null) {
+			mapToBean = createMapToBean(classMetadataName);
+		}
+	}
+
+	/**
+	 * Enables usage of additional paths.
+	 */
+	public JsonParser useAltPaths() {
+		this.useAltPaths = true;
+		return this;
+	}
+
+	/**
+	 * Enables 'loose' mode for parsing. When 'loose' mode is enabled,
+	 * JSON parsers swallows also invalid JSONs:
+	 * <ul>
+	 *     <li>invalid escape character sequence is simply added to the output</li>
+	 *     <li>strings can be quoted with single-quotes</li>
+	 *     <li>strings can be unquoted, but may not contain escapes</li>
+	 * </ul>
+	 */",1,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+	protected MapToBean createMapToBean(final String classMetadataName) {
+		return new MapToBean(this, classMetadataName);
+	}
+
+	// ---------------------------------------------------------------- object tools
+
+	/**
+	 * Creates new type for JSON array objects.
+	 * It returns a collection.
+	 * Later, the collection will be converted into the target type.
+	 */
+	@SuppressWarnings(""unchecked"")
+	protected Collection<Object> newArrayInstance(final Class targetType) {
+		if (targetType == null ||
+			targetType == List.class ||
+			targetType == Collection.class ||
+			targetType.isArray()) {
+
+			return listSupplier.get();
+		}
+
+		if (targetType == Set.class) {
+			return new HashSet<>();
+		}
+
+		try {
+			return (Collection<Object>) targetType.getDeclaredConstructor().newInstance();
+		} catch (Exception e) {
+			throw new JsonException(e);
+		}
+	}
+
+	/**
+	 * Creates new object or a <code>HashMap</code> if type is not specified.
+	 */
+	protected Object newObjectInstance(final Class targetType) {
+		if (targetType == null ||
+			targetType == Map.class) {
+",1,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+	protected Collection<Object> newArrayInstance(final Class targetType) {
+		if (targetType == null ||
+			targetType == List.class ||
+			targetType == Collection.class ||
+			targetType.isArray()) {
+
+			return listSupplier.get();
+		}
+
+		if (targetType == Set.class) {
+			return new HashSet<>();
+		}
+
+		try {
+			return (Collection<Object>) targetType.getDeclaredConstructor().newInstance();
+		} catch (Exception e) {
+			throw new JsonException(e);
+		}
+	}
+
+	/**
+	 * Creates new object or a <code>HashMap</code> if type is not specified.
+	 */
+	protected Object newObjectInstance(final Class targetType) {
+		if (targetType == null ||
+			targetType == Map.class) {
+
+			return mapSupplier.get();
+		}
+
+		ClassDescriptor cd = ClassIntrospector.get().lookup(targetType);
+
+		CtorDescriptor ctorDescriptor = cd.getDefaultCtorDescriptor(true);
+		if (ctorDescriptor == null) {
+			throw new JsonException(""Default ctor not found for: "" + targetType.getName());
+		}
+
+		try {
+//			return ClassUtil.newInstance(targetType);",1,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+	protected Object newObjectInstance(final Class targetType) {
+		if (targetType == null ||
+			targetType == Map.class) {
+
+			return mapSupplier.get();
+		}
+
+		ClassDescriptor cd = ClassIntrospector.get().lookup(targetType);
+
+		CtorDescriptor ctorDescriptor = cd.getDefaultCtorDescriptor(true);
+		if (ctorDescriptor == null) {
+			throw new JsonException(""Default ctor not found for: "" + targetType.getName());
+		}
+
+		try {
+//			return ClassUtil.newInstance(targetType);
+			return ctorDescriptor.getConstructor().newInstance();
+		} catch (Exception e) {
+			throw new JsonException(e);
+		}
+	}
+
+	/**
+	 * Injects value into the targets property.
+	 */
+	protected void injectValueIntoObject(final Object target, final PropertyDescriptor pd, final Object value) {
+		Object convertedValue = value;
+
+		if (value != null) {
+			Class targetClass = pd.getType();
+
+			convertedValue = convertType(value, targetClass);
+		}
+
+		try {
+			Setter setter = pd.getSetter(true);
+			if (setter != null) {
+				setter.invokeSetter(target, convertedValue);
+			}",1,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+
+	public MapToBean(final JsonParserBase jsonParser, final String classMetadataName) {
+		this.jsonParser = jsonParser;
+		this.classMetadataName = classMetadataName;
+	}
+
+	/**
+	 * Converts map to target type.
+	 */
+	public Object map2bean(final Map map, Class targetType) {
+		Object target = null;
+
+		// create targets type
+		String className = (String) map.get(classMetadataName);
+
+		if (className == null) {
+			if (targetType == null) {
+				// nothing to do, no information about target type found
+				target = map;
+			}
+		}
+		else {
+			try {
+				targetType = ClassLoaderUtil.loadClass(className);
+			} catch (ClassNotFoundException cnfex) {
+				throw new JsonException(cnfex);
+			}
+		}
+
+		if (target == null) {
+			target = jsonParser.newObjectInstance(targetType);
+		}
+
+		ClassDescriptor cd = ClassIntrospector.get().lookup(target.getClass());
+
+		boolean targetIsMap = target instanceof Map;
+
+		for (Object key : map.keySet()) {
+			String keyName = key.toString();",1,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+	public Object map2bean(final Map map, Class targetType) {
+		Object target = null;
+
+		// create targets type
+		String className = (String) map.get(classMetadataName);
+
+		if (className == null) {
+			if (targetType == null) {
+				// nothing to do, no information about target type found
+				target = map;
+			}
+		}
+		else {
+			try {
+				targetType = ClassLoaderUtil.loadClass(className);
+			} catch (ClassNotFoundException cnfex) {
+				throw new JsonException(cnfex);
+			}
+		}
+
+		if (target == null) {
+			target = jsonParser.newObjectInstance(targetType);
+		}
+
+		ClassDescriptor cd = ClassIntrospector.get().lookup(target.getClass());
+
+		boolean targetIsMap = target instanceof Map;
+
+		for (Object key : map.keySet()) {
+			String keyName = key.toString();
+
+			if (classMetadataName != null) {
+				if (keyName.equals(classMetadataName)) {
+					continue;
+				}
+			}
+
+			PropertyDescriptor pd = cd.getPropertyDescriptor(keyName, declared);
+",1,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+				else if (value instanceof Map) {
+					// if the value we want to inject is a Map...
+					if (!ClassUtil.isTypeOf(propertyType, Map.class)) {
+						// ... and if target is NOT a map
+						value = map2bean((Map) value, propertyType);
+					}
+					else {
+						// target is also a Map, but we might need to generify it
+						Class keyType = pd == null ? null : pd.resolveKeyType(true);
+
+						if (keyType != String.class || componentType != String.class) {
+							// generify
+							value = generifyMap((Map) value, keyType, componentType);
+						}
+					}
+				}
+			}
+
+			if (targetIsMap) {
+				((Map)target).put(keyName, value);
+			}
+			else {
+				try {
+					setValue(target, pd, value);
+				} catch (Exception ignore) {
+					ignore.printStackTrace();
+				}
+			}
+		}
+
+		return target;
+	}
+
+	/**
+	 * Converts type of all list elements to match the component type.
+	 */
+	private Object generifyList(final List list, final Class componentType) {
+		for (int i = 0; i < list.size(); i++) {
+			Object element = list.get(i);",1,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+	void setUp() {
+		creator = new DataCreator();
+	}
+
+	@AfterEach
+	void tearDown() {
+		JsonParser.Defaults.classMetadataName = null;
+		JsonSerializer.Defaults.classMetadataName = null;
+	}
+
+	@Test
+	void testDeserializeNoIncludes() {
+		JsonParsers.forEachParser(jsonParser -> {
+			Person jodder = creator.createJodder();
+			String json = new JsonSerializer().serialize(jodder);
+			Person jsonJodder = jsonParser.parse(json, Person.class);
+
+			assertNotNull(jsonJodder);
+
+			assertEquals(jodder.getLastname(), jsonJodder.getLastname());
+			assertEquals(jodder.getFirstname(), jsonJodder.getFirstname());
+			assertEquals(jodder.getBirthdate(), jsonJodder.getBirthdate());
+
+			assertEquals(jodder.getHome().getState(), jsonJodder.getHome().getState());
+			assertEquals(jodder.getHome().getStreet(), jsonJodder.getHome().getStreet());
+			assertEquals(jodder.getHome().getCity(), jsonJodder.getHome().getCity());
+
+			assertEquals(jodder.getWork().getCity(), jsonJodder.getWork().getCity());
+
+			assertEquals(jsonJodder, jsonJodder.getWork().getPerson());
+
+			assertEquals(0, jsonJodder.getHobbies().size());
+		});
+	}
+
+	@Test
+	void testDeserializeWithPath() {
+		JsonParsers.forEachParser(jsonParser -> {
+",1,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+	void tearDown() {
+		JsonParser.Defaults.classMetadataName = null;
+		JsonSerializer.Defaults.classMetadataName = null;
+	}
+
+	@Test
+	void testDeserializeNoIncludes() {
+		JsonParsers.forEachParser(jsonParser -> {
+			Person jodder = creator.createJodder();
+			String json = new JsonSerializer().serialize(jodder);
+			Person jsonJodder = jsonParser.parse(json, Person.class);
+
+			assertNotNull(jsonJodder);
+
+			assertEquals(jodder.getLastname(), jsonJodder.getLastname());
+			assertEquals(jodder.getFirstname(), jsonJodder.getFirstname());
+			assertEquals(jodder.getBirthdate(), jsonJodder.getBirthdate());
+
+			assertEquals(jodder.getHome().getState(), jsonJodder.getHome().getState());
+			assertEquals(jodder.getHome().getStreet(), jsonJodder.getHome().getStreet());
+			assertEquals(jodder.getHome().getCity(), jsonJodder.getHome().getCity());
+
+			assertEquals(jodder.getWork().getCity(), jsonJodder.getWork().getCity());
+
+			assertEquals(jsonJodder, jsonJodder.getWork().getPerson());
+
+			assertEquals(0, jsonJodder.getHobbies().size());
+		});
+	}
+
+	@Test
+	void testDeserializeWithPath() {
+		JsonParsers.forEachParser(jsonParser -> {
+
+			Person igor = creator.createJodder();
+			Map map = new HashMap();
+			map.put(""person"", igor);
+
+			String json = new JsonSerializer().serialize(map);",1,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+	void testDeserializeNoIncludes() {
+		JsonParsers.forEachParser(jsonParser -> {
+			Person jodder = creator.createJodder();
+			String json = new JsonSerializer().serialize(jodder);
+			Person jsonJodder = jsonParser.parse(json, Person.class);
+
+			assertNotNull(jsonJodder);
+
+			assertEquals(jodder.getLastname(), jsonJodder.getLastname());
+			assertEquals(jodder.getFirstname(), jsonJodder.getFirstname());
+			assertEquals(jodder.getBirthdate(), jsonJodder.getBirthdate());
+
+			assertEquals(jodder.getHome().getState(), jsonJodder.getHome().getState());
+			assertEquals(jodder.getHome().getStreet(), jsonJodder.getHome().getStreet());
+			assertEquals(jodder.getHome().getCity(), jsonJodder.getHome().getCity());
+
+			assertEquals(jodder.getWork().getCity(), jsonJodder.getWork().getCity());
+
+			assertEquals(jsonJodder, jsonJodder.getWork().getPerson());
+
+			assertEquals(0, jsonJodder.getHobbies().size());
+		});
+	}
+
+	@Test
+	void testDeserializeWithPath() {
+		JsonParsers.forEachParser(jsonParser -> {
+
+			Person igor = creator.createJodder();
+			Map map = new HashMap();
+			map.put(""person"", igor);
+
+			String json = new JsonSerializer().serialize(map);
+
+			map = jsonParser.map(""values"", Person.class).parse(json);
+			Person jsonIgor = (Person) map.get(""person"");
+
+			assertNotNull(jsonIgor);
+",1,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+    public KubernetesResource(JobManager jobManager) {
+    	this.jobManager = jobManager;
+	}
+    
+	@Path(""/job-context"")
+	@Produces(MediaType.APPLICATION_OCTET_STREAM)
+    @GET
+    public byte[] getJobContext() {
+		JobContext context = jobManager.getJobContext(getJobToken(), true);
+		Map<String, Object> contextMap = new HashMap<>();
+		contextMap.put(""commands"", context.getCommands());
+		contextMap.put(""retrieveSource"", context.isRetrieveSource());
+		contextMap.put(""cloneDepth"", context.getCloneDepth());
+		contextMap.put(""projectName"", context.getProjectName());
+		contextMap.put(""cloneInfo"", context.getCloneInfo());
+		contextMap.put(""commitHash"", context.getCommitId().name());
+		contextMap.put(""collectFiles.includes"", context.getCollectFiles().getIncludes());
+		contextMap.put(""collectFiles.excludes"", context.getCollectFiles().getExcludes());
+		return SerializationUtils.serialize((Serializable) contextMap);
+    }
+	
+	@Path(""/allocate-job-caches"")
+	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
+	@Produces(MediaType.APPLICATION_OCTET_STREAM)
+    @POST
+    public byte[] allocateJobCaches(byte[] cacheAllocationRequestBytes) {
+		CacheAllocationRequest allocationRequest = (CacheAllocationRequest) SerializationUtils
+				.deserialize(cacheAllocationRequestBytes);
+		return SerializationUtils.serialize((Serializable) jobManager.allocateJobCaches(
+				getJobToken(), allocationRequest.getCurrentTime(), allocationRequest.getInstances()));
+    }
+	
+	@Path(""/report-job-caches"")
+	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
+	@POST
+	public void reportJobCaches(byte[] cacheInstanceBytes) {
+		@SuppressWarnings(""unchecked"")
+		Collection<CacheInstance> cacheInstances = (Collection<CacheInstance>) SerializationUtils
+				.deserialize(cacheInstanceBytes);",1,CVE-2021-21243,CWE-502,theonedev/onedev,9637fc8fa461c5777282a0021c3deb1e7a48f137,java
+"
+    public byte[] getJobContext() {
+		JobContext context = jobManager.getJobContext(getJobToken(), true);
+		Map<String, Object> contextMap = new HashMap<>();
+		contextMap.put(""commands"", context.getCommands());
+		contextMap.put(""retrieveSource"", context.isRetrieveSource());
+		contextMap.put(""cloneDepth"", context.getCloneDepth());
+		contextMap.put(""projectName"", context.getProjectName());
+		contextMap.put(""cloneInfo"", context.getCloneInfo());
+		contextMap.put(""commitHash"", context.getCommitId().name());
+		contextMap.put(""collectFiles.includes"", context.getCollectFiles().getIncludes());
+		contextMap.put(""collectFiles.excludes"", context.getCollectFiles().getExcludes());
+		return SerializationUtils.serialize((Serializable) contextMap);
+    }
+	
+	@Path(""/allocate-job-caches"")
+	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
+	@Produces(MediaType.APPLICATION_OCTET_STREAM)
+    @POST
+    public byte[] allocateJobCaches(byte[] cacheAllocationRequestBytes) {
+		CacheAllocationRequest allocationRequest = (CacheAllocationRequest) SerializationUtils
+				.deserialize(cacheAllocationRequestBytes);
+		return SerializationUtils.serialize((Serializable) jobManager.allocateJobCaches(
+				getJobToken(), allocationRequest.getCurrentTime(), allocationRequest.getInstances()));
+    }
+	
+	@Path(""/report-job-caches"")
+	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
+	@POST
+	public void reportJobCaches(byte[] cacheInstanceBytes) {
+		@SuppressWarnings(""unchecked"")
+		Collection<CacheInstance> cacheInstances = (Collection<CacheInstance>) SerializationUtils
+				.deserialize(cacheInstanceBytes);
+		jobManager.reportJobCaches(getJobToken(), cacheInstances);
+	}
+	
+	@Path(""/download-dependencies"")
+	@Produces(MediaType.APPLICATION_OCTET_STREAM)
+	@GET
+	public Response downloadDependencies() {",1,CVE-2021-21243,CWE-502,theonedev/onedev,9637fc8fa461c5777282a0021c3deb1e7a48f137,java
+"
+    public byte[] allocateJobCaches(byte[] cacheAllocationRequestBytes) {
+		CacheAllocationRequest allocationRequest = (CacheAllocationRequest) SerializationUtils
+				.deserialize(cacheAllocationRequestBytes);
+		return SerializationUtils.serialize((Serializable) jobManager.allocateJobCaches(
+				getJobToken(), allocationRequest.getCurrentTime(), allocationRequest.getInstances()));
+    }
+	
+	@Path(""/report-job-caches"")
+	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
+	@POST
+	public void reportJobCaches(byte[] cacheInstanceBytes) {
+		@SuppressWarnings(""unchecked"")
+		Collection<CacheInstance> cacheInstances = (Collection<CacheInstance>) SerializationUtils
+				.deserialize(cacheInstanceBytes);
+		jobManager.reportJobCaches(getJobToken(), cacheInstances);
+	}
+	
+	@Path(""/download-dependencies"")
+	@Produces(MediaType.APPLICATION_OCTET_STREAM)
+	@GET
+	public Response downloadDependencies() {
+		StreamingOutput os = new StreamingOutput() {
+
+			@Override
+		   public void write(OutputStream output) throws IOException {
+				JobContext context = jobManager.getJobContext(getJobToken(), true);
+				TarUtils.tar(context.getServerWorkspace(), Lists.newArrayList(""**""), 
+						new ArrayList<>(), output);
+				output.flush();
+		   }				   
+		   
+		};
+		return Response.ok(os).build();
+	}
+	
+	@POST
+	@Path(""/upload-outcomes"")
+	@Consumes(MediaType.APPLICATION_OCTET_STREAM)	
+	public Response uploadOutcomes(InputStream is) {",1,CVE-2021-21243,CWE-502,theonedev/onedev,9637fc8fa461c5777282a0021c3deb1e7a48f137,java
+"
+    public XStream() {
+        this(null, (Mapper)null, new XppDriver());
+    }
+
+    /**
+     * Constructs an XStream with a special {@link ReflectionProvider}.
+     * <p>
+     * The instance will use the {@link XppDriver} as default.
+     * </p>
+     * 
+     * @param reflectionProvider the reflection provider to use or <em>null</em> for best matching reflection provider
+     * @throws InitializationException in case of an initialization problem
+     */
+    public XStream(ReflectionProvider reflectionProvider) {
+        this(reflectionProvider, (Mapper)null, new XppDriver());
+    }
+
+    /**
+     * Constructs an XStream with a special {@link HierarchicalStreamDriver}.
+     * <p>
+     * The instance will tries to determine the best match for the {@link ReflectionProvider} on its own.
+     * </p>
+     *
+     * @param hierarchicalStreamDriver the driver instance
+     * @throws InitializationException in case of an initialization problem
+     */
+    public XStream(HierarchicalStreamDriver hierarchicalStreamDriver) {
+        this(null, (Mapper)null, hierarchicalStreamDriver);
+    }
+
+    /**
+     * Constructs an XStream with a special {@link HierarchicalStreamDriver} and {@link ReflectionProvider}.
+     * 
+     * @param reflectionProvider the reflection provider to use or <em>null</em> for best matching Provider
+     * @param hierarchicalStreamDriver the driver instance
+     * @throws InitializationException in case of an initialization problem
+     */
+    public XStream(ReflectionProvider reflectionProvider, HierarchicalStreamDriver hierarchicalStreamDriver) {
+        this(reflectionProvider, (Mapper)null, hierarchicalStreamDriver);",1,CVE-2021-29505,CWE-502,x-stream/xstream,f0c4a8d861b68ffc3119cfbbbd632deee624e227,java
+"
+    public XStream(ReflectionProvider reflectionProvider) {
+        this(reflectionProvider, (Mapper)null, new XppDriver());
+    }
+
+    /**
+     * Constructs an XStream with a special {@link HierarchicalStreamDriver}.
+     * <p>
+     * The instance will tries to determine the best match for the {@link ReflectionProvider} on its own.
+     * </p>
+     *
+     * @param hierarchicalStreamDriver the driver instance
+     * @throws InitializationException in case of an initialization problem
+     */
+    public XStream(HierarchicalStreamDriver hierarchicalStreamDriver) {
+        this(null, (Mapper)null, hierarchicalStreamDriver);
+    }
+
+    /**
+     * Constructs an XStream with a special {@link HierarchicalStreamDriver} and {@link ReflectionProvider}.
+     * 
+     * @param reflectionProvider the reflection provider to use or <em>null</em> for best matching Provider
+     * @param hierarchicalStreamDriver the driver instance
+     * @throws InitializationException in case of an initialization problem
+     */
+    public XStream(ReflectionProvider reflectionProvider, HierarchicalStreamDriver hierarchicalStreamDriver) {
+        this(reflectionProvider, (Mapper)null, hierarchicalStreamDriver);
+    }
+
+    /**
+     * Constructs an XStream with a special {@link HierarchicalStreamDriver}, {@link ReflectionProvider} and a prepared
+     * {@link Mapper} chain.
+     * 
+     * @param reflectionProvider the reflection provider to use or <em>null</em> for best matching Provider
+     * @param mapper the instance with the {@link Mapper} chain or <em>null</em> for the default chain
+     * @param driver the driver instance
+     * @throws InitializationException in case of an initialization problem
+     * @deprecated As of 1.3, use {@link #XStream(ReflectionProvider, HierarchicalStreamDriver, ClassLoader, Mapper)}
+     *             instead
+     */",1,CVE-2021-29505,CWE-502,x-stream/xstream,f0c4a8d861b68ffc3119cfbbbd632deee624e227,java
+"
+    public XStream(HierarchicalStreamDriver hierarchicalStreamDriver) {
+        this(null, (Mapper)null, hierarchicalStreamDriver);
+    }
+
+    /**
+     * Constructs an XStream with a special {@link HierarchicalStreamDriver} and {@link ReflectionProvider}.
+     * 
+     * @param reflectionProvider the reflection provider to use or <em>null</em> for best matching Provider
+     * @param hierarchicalStreamDriver the driver instance
+     * @throws InitializationException in case of an initialization problem
+     */
+    public XStream(ReflectionProvider reflectionProvider, HierarchicalStreamDriver hierarchicalStreamDriver) {
+        this(reflectionProvider, (Mapper)null, hierarchicalStreamDriver);
+    }
+
+    /**
+     * Constructs an XStream with a special {@link HierarchicalStreamDriver}, {@link ReflectionProvider} and a prepared
+     * {@link Mapper} chain.
+     * 
+     * @param reflectionProvider the reflection provider to use or <em>null</em> for best matching Provider
+     * @param mapper the instance with the {@link Mapper} chain or <em>null</em> for the default chain
+     * @param driver the driver instance
+     * @throws InitializationException in case of an initialization problem
+     * @deprecated As of 1.3, use {@link #XStream(ReflectionProvider, HierarchicalStreamDriver, ClassLoader, Mapper)}
+     *             instead
+     */
+    public XStream(ReflectionProvider reflectionProvider, Mapper mapper, HierarchicalStreamDriver driver) {
+        this(reflectionProvider, driver, new CompositeClassLoader(), mapper);
+    }
+
+    /**
+     * Constructs an XStream with a special {@link HierarchicalStreamDriver}, {@link ReflectionProvider} and a
+     * {@link ClassLoaderReference}.
+     * 
+     * @param reflectionProvider the reflection provider to use or <em>null</em> for best matching Provider
+     * @param driver the driver instance
+     * @param classLoaderReference the reference to the {@link ClassLoader} to use
+     * @throws InitializationException in case of an init",1,CVE-2021-29505,CWE-502,x-stream/xstream,f0c4a8d861b68ffc3119cfbbbd632deee624e227,java
+"
+
+    public ScriptPluginProviderLoader(final File file, final File cachedir) {
+        this.file = file;
+        this.cachedir = cachedir;
+    }
+
+    @Override
+    public boolean canLoadForService(final FrameworkSupportService service) {
+        return service instanceof ScriptPluginProviderLoadable;
+    }
+
+    private PluginResourceLoader getResourceLoader() throws PluginException {
+        if (null == resourceLoader) {
+            synchronized (this) {
+                if (null == resourceLoader) {
+                    try {
+                        ZipResourceLoader loader = new ZipResourceLoader(
+                                new File(getFileCacheDir(), ""resources""),
+                                file,
+                                getPluginResourcesList(),
+                                getFileBasename() + ""/"" + getResourcesBasePath()
+                        );
+                        loader.extractResources();
+                        this.resourceLoader = loader;
+                    } catch (IOException e) {
+                        throw new PluginException(""Unable to expand plugin libs: "" + e.getMessage(), e);
+                    }
+                }
+            }
+        }
+        return resourceLoader;
+    }
+
+    @Override
+    public List<String> listResources() throws PluginException, IOException {
+        if (supportsResources(getPluginMeta())) {
+            return getResourceLoader().listResources();
+        }
+        return null;",1,CVE-2021-39132,CWE-502,rundeck/rundeck,850d12e21d22833bc148b7f458d7cb5949f829b6,java
+"
+    public boolean canLoadForService(final FrameworkSupportService service) {
+        return service instanceof ScriptPluginProviderLoadable;
+    }
+
+    private PluginResourceLoader getResourceLoader() throws PluginException {
+        if (null == resourceLoader) {
+            synchronized (this) {
+                if (null == resourceLoader) {
+                    try {
+                        ZipResourceLoader loader = new ZipResourceLoader(
+                                new File(getFileCacheDir(), ""resources""),
+                                file,
+                                getPluginResourcesList(),
+                                getFileBasename() + ""/"" + getResourcesBasePath()
+                        );
+                        loader.extractResources();
+                        this.resourceLoader = loader;
+                    } catch (IOException e) {
+                        throw new PluginException(""Unable to expand plugin libs: "" + e.getMessage(), e);
+                    }
+                }
+            }
+        }
+        return resourceLoader;
+    }
+
+    @Override
+    public List<String> listResources() throws PluginException, IOException {
+        if (supportsResources(getPluginMeta())) {
+            return getResourceLoader().listResources();
+        }
+        return null;
+    }
+
+    @Override
+    public InputStream openResourceStreamFor(final String name) throws PluginException, IOException {
+        if (supportsResources(getPluginMeta())) {
+            return getResourceLoader().openResourceStreamFor(name);
+        }",1,CVE-2021-39132,CWE-502,rundeck/rundeck,850d12e21d22833bc148b7f458d7cb5949f829b6,java
+"
+
+    private PluginResourceLoader getResourceLoader() throws PluginException {
+        if (null == resourceLoader) {
+            synchronized (this) {
+                if (null == resourceLoader) {
+                    try {
+                        ZipResourceLoader loader = new ZipResourceLoader(
+                                new File(getFileCacheDir(), ""resources""),
+                                file,
+                                getPluginResourcesList(),
+                                getFileBasename() + ""/"" + getResourcesBasePath()
+                        );
+                        loader.extractResources();
+                        this.resourceLoader = loader;
+                    } catch (IOException e) {
+                        throw new PluginException(""Unable to expand plugin libs: "" + e.getMessage(), e);
+                    }
+                }
+            }
+        }
+        return resourceLoader;
+    }
+
+    @Override
+    public List<String> listResources() throws PluginException, IOException {
+        if (supportsResources(getPluginMeta())) {
+            return getResourceLoader().listResources();
+        }
+        return null;
+    }
+
+    @Override
+    public InputStream openResourceStreamFor(final String name) throws PluginException, IOException {
+        if (supportsResources(getPluginMeta())) {
+            return getResourceLoader().openResourceStreamFor(name);
+        }
+        return null;
+    }
+",1,CVE-2021-39132,CWE-502,rundeck/rundeck,850d12e21d22833bc148b7f458d7cb5949f829b6,java
+"
+    public boolean isPacked(File workflowFile) throws IOException {
+        if (workflowFile.length() > singleFileSizeLimit) {
+            return false;
+        }
+        String fileContent = readFileToString(workflowFile);
+        return fileContent.contains(""$graph"");
+    }
+
+    /**
+     * Gets a list of workflows from a packed CWL file
+     * @param packedFile The packed CWL file
+     * @return The list of workflow overviews
+     */
+    public List<WorkflowOverview> getWorkflowOverviewsFromPacked(File packedFile) throws IOException {
+        if (packedFile.length() <= singleFileSizeLimit) {
+            List<WorkflowOverview> overviews = new ArrayList<>();
+
+            JsonNode packedJson = yamlPathToJson(packedFile.toPath());
+
+            if (packedJson.has(DOC_GRAPH)) {
+                for (JsonNode jsonNode : packedJson.get(DOC_GRAPH)) {
+                    if (extractProcess(jsonNode) == CWLProcess.WORKFLOW) {
+                        WorkflowOverview overview = new WorkflowOverview(jsonNode.get(ID).asText(),
+                                extractLabel(jsonNode), extractDoc(jsonNode));
+                        overviews.add(overview);
+                    }
+                }
+            } else {
+                throw new IOException(""The file given was not recognised as a packed CWL file"");
+            }
+
+            return overviews;
+
+        } else {
+            throw new IOException(""File '"" + packedFile.getName() +  ""' is over singleFileSizeLimit - "" +
+                    FileUtils.byteCountToDisplaySize(packedFile.length()) + ""/"" +
+                    FileUtils.byteCountToDisplaySize(singleFileSizeLimit));
+        }
+    }",1,CVE-2021-41110,CWE-502,common-workflow-language/cwlviewer,f6066f09edb70033a2ce80200e9fa9e70a5c29de,java
+"
+    public List<WorkflowOverview> getWorkflowOverviewsFromPacked(File packedFile) throws IOException {
+        if (packedFile.length() <= singleFileSizeLimit) {
+            List<WorkflowOverview> overviews = new ArrayList<>();
+
+            JsonNode packedJson = yamlPathToJson(packedFile.toPath());
+
+            if (packedJson.has(DOC_GRAPH)) {
+                for (JsonNode jsonNode : packedJson.get(DOC_GRAPH)) {
+                    if (extractProcess(jsonNode) == CWLProcess.WORKFLOW) {
+                        WorkflowOverview overview = new WorkflowOverview(jsonNode.get(ID).asText(),
+                                extractLabel(jsonNode), extractDoc(jsonNode));
+                        overviews.add(overview);
+                    }
+                }
+            } else {
+                throw new IOException(""The file given was not recognised as a packed CWL file"");
+            }
+
+            return overviews;
+
+        } else {
+            throw new IOException(""File '"" + packedFile.getName() +  ""' is over singleFileSizeLimit - "" +
+                    FileUtils.byteCountToDisplaySize(packedFile.length()) + ""/"" +
+                    FileUtils.byteCountToDisplaySize(singleFileSizeLimit));
+        }
+    }
+
+    /**
+     * Gets the Workflow object from internal parsing. 
+     * Note, the length of the stream is not checked.
+     *  
+     * @param workflowStream The workflow stream to be parsed
+     * @param packedWorkflowId The ID of the workflow object if the file is packed. <code>null</code> means the workflow is not expected to be packed, while """" means the first workflow found is used, packed or non-packed.
+     * @param defaultLabel Label to give workflow if not set
+     * @return The constructed workflow object
+     */
+    public Workflow parseWorkflowNative(InputStream workflowStream, String packedWorkflowId, String defaultLabel) throws IOException {
+        // Parse file as yaml
+        JsonNode cwlFile = yamlStreamToJson(workflowStream);",1,CVE-2021-41110,CWE-502,common-workflow-language/cwlviewer,f6066f09edb70033a2ce80200e9fa9e70a5c29de,java
+"
+    public Workflow parseWorkflowNative(InputStream workflowStream, String packedWorkflowId, String defaultLabel) throws IOException {
+        // Parse file as yaml
+        JsonNode cwlFile = yamlStreamToJson(workflowStream);
+
+        // Check packed workflow occurs
+        boolean found = false;
+        if (packedWorkflowId != null) {
+            if (cwlFile.has(DOC_GRAPH)) {
+                for (JsonNode jsonNode : cwlFile.get(DOC_GRAPH)) {
+                    if (extractProcess(jsonNode) == CWLProcess.WORKFLOW) {
+                        String currentId = jsonNode.get(ID).asText();
+                        if (currentId.startsWith(""#"")) {
+                            currentId = currentId.substring(1);
+                        }
+                        if (packedWorkflowId.isEmpty() || currentId.equals(packedWorkflowId)) {
+                            cwlFile = jsonNode;
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!found && ! packedWorkflowId.isEmpty()) throw new WorkflowNotFoundException();
+        }
+        if (! found && extractProcess(cwlFile) == CWLProcess.WORKFLOW) {
+        	// Check the current json node is a workflow
+        	found = true;
+        }
+        if (! found) {
+            throw new WorkflowNotFoundException();
+        }
+
+        // Use filename for label if there is no defined one
+        String label = extractLabel(cwlFile);
+        if (label == null) {
+            label = defaultLabel;
+        }
+
+        // Construct the rest of the workflow model",1,CVE-2021-41110,CWE-502,common-workflow-language/cwlviewer,f6066f09edb70033a2ce80200e9fa9e70a5c29de,java
+"
+
+    public static ParserConfig getGlobalInstance() {
+        return global;
+    }
+    public static ParserConfig                              global                = new ParserConfig();
+
+    private final IdentityHashMap<Type, ObjectDeserializer> deserializers         = new IdentityHashMap<Type, ObjectDeserializer>();
+    private final IdentityHashMap<Type, IdentityHashMap<Type, ObjectDeserializer>> mixInDeserializers = new IdentityHashMap<Type, IdentityHashMap<Type, ObjectDeserializer>>(16);
+    private final ConcurrentMap<String,Class<?>>            typeMapping           = new ConcurrentHashMap<String,Class<?>>(16, 0.75f, 1);
+
+    private boolean                                         asmEnable             = !ASMUtils.IS_ANDROID;
+
+    public final SymbolTable                                symbolTable           = new SymbolTable(4096);
+
+    public PropertyNamingStrategy                           propertyNamingStrategy;
+
+    protected ClassLoader                                   defaultClassLoader;
+
+    protected ASMDeserializerFactory                        asmFactory;
+
+    private static boolean                                  awtError              = false;
+    private static boolean                                  jdk8Error             = false;
+    private static boolean                                  jodaError             = false;
+    private static boolean                                  guavaError            = false;
+
+    private boolean                                         autoTypeSupport       = AUTO_SUPPORT;
+    private long[]                                          internalDenyHashCodes;
+    private long[]                                          denyHashCodes;
+    private long[]                                          acceptHashCodes;
+
+
+    public final boolean                                    fieldBased;
+    private boolean                                         jacksonCompatible     = false;
+
+    public boolean                         ",1,CVE-2022-25845,CWE-502,alibaba/fastjson,35db4adad70c32089542f23c272def1ad920a60d,java
+"
+
+    public ParserConfig(){
+        this(false);
+    }
+
+    public ParserConfig(boolean fieldBase){
+        this(null, null, fieldBase);
+    }
+
+    public ParserConfig(ClassLoader parentClassLoader){
+        this(null, parentClassLoader, false);
+    }
+
+    public ParserConfig(ASMDeserializerFactory asmFactory){
+        this(asmFactory, null, false);
+    }
+
+    private ParserConfig(ASMDeserializerFactory asmFactory, ClassLoader parentClassLoader, boolean fieldBased){
+        this.fieldBased = fieldBased;
+        if (asmFactory == null && !ASMUtils.IS_ANDROID) {
+            try {
+                if (parentClassLoader == null) {
+                    asmFactory = new ASMDeserializerFactory(new ASMClassLoader());
+                } else {
+                    asmFactory = new ASMDeserializerFactory(parentClassLoader);
+                }
+            } catch (ExceptionInInitializerError error) {
+                // skip
+            } catch (AccessControlException error) {
+                // skip
+            } catch (NoClassDefFoundError error) {
+                // skip
+            }
+        }
+
+        this.asmFactory = asmFactory;
+
+        if (asmFactory == null) {
+            asmEnable = false;",1,CVE-2022-25845,CWE-502,alibaba/fastjson,35db4adad70c32089542f23c272def1ad920a60d,java
+"
+
+    public ParserConfig(boolean fieldBase){
+        this(null, null, fieldBase);
+    }
+
+    public ParserConfig(ClassLoader parentClassLoader){
+        this(null, parentClassLoader, false);
+    }
+
+    public ParserConfig(ASMDeserializerFactory asmFactory){
+        this(asmFactory, null, false);
+    }
+
+    private ParserConfig(ASMDeserializerFactory asmFactory, ClassLoader parentClassLoader, boolean fieldBased){
+        this.fieldBased = fieldBased;
+        if (asmFactory == null && !ASMUtils.IS_ANDROID) {
+            try {
+                if (parentClassLoader == null) {
+                    asmFactory = new ASMDeserializerFactory(new ASMClassLoader());
+                } else {
+                    asmFactory = new ASMDeserializerFactory(parentClassLoader);
+                }
+            } catch (ExceptionInInitializerError error) {
+                // skip
+            } catch (AccessControlException error) {
+                // skip
+            } catch (NoClassDefFoundError error) {
+                // skip
+            }
+        }
+
+        this.asmFactory = asmFactory;
+
+        if (asmFactory == null) {
+            asmEnable = false;
+        }
+
+        initDeserializers();
+",1,CVE-2022-25845,CWE-502,alibaba/fastjson,35db4adad70c32089542f23c272def1ad920a60d,java
+"
+	public void test_exception() throws Exception {
+		RuntimeException ex = new RuntimeException(""e1"");
+		String text = JSON.toJSONString(ex);
+		System.out.println(text);
+		
+		RuntimeException ex2 = (RuntimeException) JSON.parse(text);
+	}
+}",1,CVE-2022-25845,CWE-502,alibaba/fastjson,35db4adad70c32089542f23c272def1ad920a60d,java
+"
+    public void handleRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        try {
+            RemoteInvocation invocation = readRemoteInvocation(request);
+
+            if (!authorized(request, response, invocation)) {
+                return;
+            }
+
+            RemoteInvocationResult result = invokeAndCreateResult(invocation, getProxy());
+            writeRemoteInvocationResult(request, response, result);
+        } catch (ClassNotFoundException ex) {
+            throw new NestedServletException(""Class not found during deserialization"", ex);
+        }
+    }
+
+    /**
+     * Verifies that the agent UUID from the deserialized payload matches the UUID permitted by the agent authentication
+     * filter.
+     *
+     * @param request    the {@link HttpServletRequest}
+     * @param response   the {@link HttpServletResponse}
+     * @param invocation the deserialized {@link RemoteInvocation} payload
+     * @return true if authorized; false otherwise
+     * @throws IOException on error while writing a response back to the client
+     */
+    private boolean authorized(HttpServletRequest request, HttpServletResponse response, RemoteInvocation invocation) throws IOException {
+        final String uuid = request.getHeader(""X-Agent-GUID""); // should never be null since we passed the auth filter
+        final MethodSignature current = new MethodSignature(invocation);
+
+        LOG.debug(format(""Checking authorization for agent [%s] on invocation: %s"", uuid, invocation));
+
+        if (KNOWN_METHODS_NEEDING_UUID_VALIDATION.contains(current)) {
+            final String askingFor = AgentUUID.fromRuntimeInfo0(invocation.getArguments());
+
+            if (!uuid.equals(askingFor)) {
+                LOG.error(format(""DENYING REQUEST: Agent [%s] is attempting a request on behalf of [%s]: %s"", uuid, askingFor, invocation));
+                reject(response, SC_FORBIDDEN, ""Not allowing request on behalf of another agent"");
+       ",1,CVE-2022-39311,CWE-502,gocd/gocd,7b88b70d6f7f429562d5cab49a80ea856e34cdc8,java
+"
+    private boolean authorized(HttpServletRequest request, HttpServletResponse response, RemoteInvocation invocation) throws IOException {
+        final String uuid = request.getHeader(""X-Agent-GUID""); // should never be null since we passed the auth filter
+        final MethodSignature current = new MethodSignature(invocation);
+
+        LOG.debug(format(""Checking authorization for agent [%s] on invocation: %s"", uuid, invocation));
+
+        if (KNOWN_METHODS_NEEDING_UUID_VALIDATION.contains(current)) {
+            final String askingFor = AgentUUID.fromRuntimeInfo0(invocation.getArguments());
+
+            if (!uuid.equals(askingFor)) {
+                LOG.error(format(""DENYING REQUEST: Agent [%s] is attempting a request on behalf of [%s]: %s"", uuid, askingFor, invocation));
+                reject(response, SC_FORBIDDEN, ""Not allowing request on behalf of another agent"");
+                return false;
+            }
+        } else {
+            LOG.error(format(""DENYING REQUEST: Agent [%s] is requesting an unknown method invocation: %s"", uuid, invocation));
+            reject(response, SC_BAD_REQUEST, format(""Unknown invocation: %s"", invocation));
+            return false;
+        }
+
+        LOG.debug(format(""ALLOWING REQUEST: Agent [%s] is authorized to invoke: %s"", uuid, invocation));
+        return true;
+    }
+
+    /**
+     * Returns a plaintext error response back to the agent on failure
+     *
+     * @param response   the {@link HttpServletResponse}
+     * @param statusCode the HTTP status code
+     * @param msg        the error message
+     * @throws IOException on error while writing a response back to the client
+     */
+    private void reject(HttpServletResponse response, int statusCode, String msg) throws IOException {
+        response.setStatus(statusCode);
+        response.setContentType(""text/plain"");
+        final PrintWriter writer = response.getWriter();
+        writer.println(msg);
+        writer.flush();
+        writer.close();",1,CVE-2022-39311,CWE-502,gocd/gocd,7b88b70d6f7f429562d5cab49a80ea856e34cdc8,java
+"
+    private void reject(HttpServletResponse response, int statusCode, String msg) throws IOException {
+        response.setStatus(statusCode);
+        response.setContentType(""text/plain"");
+        final PrintWriter writer = response.getWriter();
+        writer.println(msg);
+        writer.flush();
+        writer.close();
+    }
+
+    /**
+     * Just a container class to hold functions to extract the agent UUID from deserialized payloads
+     */
+    private static class AgentUUID {
+        private static String fromRuntimeInfo0(Object[] args) {
+            return ((AgentRuntimeInfo) args[0]).getIdentifier().getUuid();
+        }
+    }
+
+    /**
+     * Helper class to make RMI method matching easier
+     */
+    private static class MethodSignature {
+        private final String name;
+        private final Class<?>[] paramTypes;
+
+        private MethodSignature(RemoteInvocation invocation) {
+            this(invocation.getMethodName(), invocation.getParameterTypes());
+        }
+
+        private MethodSignature(String name, Class<?>... paramTypes) {
+            this.name = name;
+            this.paramTypes = paramTypes;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            MethodSignature that = (MethodSignature) o;",1,CVE-2022-39311,CWE-502,gocd/gocd,7b88b70d6f7f429562d5cab49a80ea856e34cdc8,java
+"
+    void setup() throws Exception {
+        openMocks(this).close();
+        req = new MockHttpServletRequest();
+        req.addHeader(""X-Agent-GUID"", AGENT_UUID);
+        res = new MockHttpServletResponse();
+    }
+
+    @Test
+    void isIgnored_allowedForSameUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(AGENT_UUID);
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""isIgnored"", new Class[]{AgentRuntimeInfo.class, JobIdentifier.class}, new Object[]{agent, null}), target);
+        invoker.handleRequest(req, res);
+        verify(target, only()).isIgnored(agent, null);
+        assertEquals(SC_OK, res.getStatus());
+    }
+
+    @Test
+    void isIgnored_rejectedForDifferentUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(""other"");
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""isIgnored"", new Class[]{AgentRuntimeInfo.class, JobIdentifier.class}, new Object[]{agent, null}), target);
+        invoker.handleRequest(req, res);
+        verify(target, never()).isIgnored(any(AgentRuntimeInfo.class), any(JobIdentifier.class));
+        assertEquals(SC_FORBIDDEN, res.getStatus());
+    }
+
+    @Test
+    void ping_allowedForSameUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(AGENT_UUID);
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""ping"", new Class[]{AgentRuntimeInfo.class}, new Object[]{agent}), target);
+        invoker.handleRequest(req, res);
+        verify(target, only()).ping(agent);
+        assertEquals(SC_OK, res.getStatus());
+    }
+
+    @Test
+    void ping_rejectedForDifferentUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(""other"");
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""ping"", new Class[]{AgentRuntimeInfo.class}, new Object[]{agent}), target);
+        invok",1,CVE-2022-39311,CWE-502,gocd/gocd,7b88b70d6f7f429562d5cab49a80ea856e34cdc8,java
+"
+    void isIgnored_allowedForSameUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(AGENT_UUID);
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""isIgnored"", new Class[]{AgentRuntimeInfo.class, JobIdentifier.class}, new Object[]{agent, null}), target);
+        invoker.handleRequest(req, res);
+        verify(target, only()).isIgnored(agent, null);
+        assertEquals(SC_OK, res.getStatus());
+    }
+
+    @Test
+    void isIgnored_rejectedForDifferentUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(""other"");
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""isIgnored"", new Class[]{AgentRuntimeInfo.class, JobIdentifier.class}, new Object[]{agent, null}), target);
+        invoker.handleRequest(req, res);
+        verify(target, never()).isIgnored(any(AgentRuntimeInfo.class), any(JobIdentifier.class));
+        assertEquals(SC_FORBIDDEN, res.getStatus());
+    }
+
+    @Test
+    void ping_allowedForSameUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(AGENT_UUID);
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""ping"", new Class[]{AgentRuntimeInfo.class}, new Object[]{agent}), target);
+        invoker.handleRequest(req, res);
+        verify(target, only()).ping(agent);
+        assertEquals(SC_OK, res.getStatus());
+    }
+
+    @Test
+    void ping_rejectedForDifferentUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(""other"");
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""ping"", new Class[]{AgentRuntimeInfo.class}, new Object[]{agent}), target);
+        invoker.handleRequest(req, res);
+        verify(target, never()).ping(any(AgentRuntimeInfo.class));
+        assertEquals(SC_FORBIDDEN, res.getStatus());
+    }
+
+    @Test
+    void getWork_allowedForSameUUID() throws Exception {
+    ",1,CVE-2022-39311,CWE-502,gocd/gocd,7b88b70d6f7f429562d5cab49a80ea856e34cdc8,java
+"
+    void isIgnored_rejectedForDifferentUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(""other"");
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""isIgnored"", new Class[]{AgentRuntimeInfo.class, JobIdentifier.class}, new Object[]{agent, null}), target);
+        invoker.handleRequest(req, res);
+        verify(target, never()).isIgnored(any(AgentRuntimeInfo.class), any(JobIdentifier.class));
+        assertEquals(SC_FORBIDDEN, res.getStatus());
+    }
+
+    @Test
+    void ping_allowedForSameUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(AGENT_UUID);
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""ping"", new Class[]{AgentRuntimeInfo.class}, new Object[]{agent}), target);
+        invoker.handleRequest(req, res);
+        verify(target, only()).ping(agent);
+        assertEquals(SC_OK, res.getStatus());
+    }
+
+    @Test
+    void ping_rejectedForDifferentUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(""other"");
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""ping"", new Class[]{AgentRuntimeInfo.class}, new Object[]{agent}), target);
+        invoker.handleRequest(req, res);
+        verify(target, never()).ping(any(AgentRuntimeInfo.class));
+        assertEquals(SC_FORBIDDEN, res.getStatus());
+    }
+
+    @Test
+    void getWork_allowedForSameUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(AGENT_UUID);
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""getWork"", new Class[]{AgentRuntimeInfo.class}, new Object[]{agent}), target);
+        invoker.handleRequest(req, res);
+        verify(target, only()).getWork(agent);
+        assertEquals(SC_OK, res.getStatus());
+    }
+
+    @Test
+    void getWork_rejectedForDifferentUUID() throws Exception {
+        final AgentRuntimeInfo agent ",1,CVE-2022-39311,CWE-502,gocd/gocd,7b88b70d6f7f429562d5cab49a80ea856e34cdc8,java
+"
+
+    public String getJdbc() {
+        if(StringUtils.isEmpty(extraParams.trim())){
+            return ""jdbc:mysql://HOSTNAME:PORT/DATABASE""
+                    .replace(""HOSTNAME"", getHost().trim())
+                    .replace(""PORT"", getPort().toString().trim())
+                    .replace(""DATABASE"", getDataBase().trim());
+        }else {
+            return ""jdbc:mysql://HOSTNAME:PORT/DATABASE?EXTRA_PARAMS""
+                    .replace(""HOSTNAME"", getHost().trim())
+                    .replace(""PORT"", getPort().toString().trim())
+                    .replace(""DATABASE"", getDataBase().trim())
+                    .replace(""EXTRA_PARAMS"", getExtraParams().trim());
+        }
+    }
+}",1,CVE-2022-39312,CWE-502,dataease/dataease,956ee2d6c9e81349a60aef435efc046888e10a6d,java
+"
+  public ExitCode runWithoutHelp(CommandRunnerParams params)
+      throws IOException, InterruptedException {
+
+    if (saveFilename != null && loadFilename != null) {
+      params.getConsole().printErrorText(""Can't use both --load and --save"");
+      return ExitCode.COMMANDLINE_ERROR;
+    }
+
+    if (saveFilename != null) {
+      invalidateChanges(params);
+      RemoteDaemonicParserState state = params.getParser().storeParserState(params.getCell());
+      try (FileOutputStream fos = new FileOutputStream(saveFilename);
+          ZipOutputStream zipos = new ZipOutputStream(fos)) {
+        zipos.putNextEntry(new ZipEntry(""parser_data""));
+        try (ObjectOutputStream oos = new ObjectOutputStream(zipos)) {
+          oos.writeObject(state);
+        }
+      }
+    } else if (loadFilename != null) {
+      try (FileInputStream fis = new FileInputStream(loadFilename);
+          ZipInputStream zipis = new ZipInputStream(fis)) {
+        ZipEntry entry = zipis.getNextEntry();
+        Preconditions.checkState(entry.getName().equals(""parser_data""));
+        try (ObjectInputStream ois = new ObjectInputStream(zipis)) {
+          RemoteDaemonicParserState state;
+          try {
+            state = (RemoteDaemonicParserState) ois.readObject();
+          } catch (ClassNotFoundException e) {
+            params.getConsole().printErrorText(""Invalid file format"");
+            return ExitCode.COMMANDLINE_ERROR;
+          }
+          params.getParser().restoreParserState(state, params.getCell());
+        }
+      }
+      invalidateChanges(params);
+
+      ParserConfig configView = params.getBuckConfig().getView(ParserConfig.class);
+      if (configView.isParserCacheMutationWarningEnabled()) {
+        params",0,CVE-2018-6331,CWE-502,facebook/buck,8c5500981812564877bd122c0f8fab48d3528ddf,java
+" else if (loadFilename != null) {
+      try (FileInputStream fis = new FileInputStream(loadFilename);
+          ZipInputStream zipis = new ZipInputStream(fis)) {
+        ZipEntry entry = zipis.getNextEntry();
+        Preconditions.checkState(entry.getName().equals(""parser_data""));
+        try (ObjectInputStream ois = new ObjectInputStream(zipis)) {
+          RemoteDaemonicParserState state;
+          try {
+            state = (RemoteDaemonicParserState) ois.readObject();
+          } catch (ClassNotFoundException e) {
+            params.getConsole().printErrorText(""Invalid file format"");
+            return ExitCode.COMMANDLINE_ERROR;
+          }
+          params.getParser().restoreParserState(state, params.getCell());
+        }
+      }
+      invalidateChanges(params);
+
+      ParserConfig configView = params.getBuckConfig().getView(ParserConfig.class);
+      if (configView.isParserCacheMutationWarningEnabled()) {
+        params
+            .getConsole()
+            .printErrorText(
+                params
+                    .getConsole()
+                    .getAnsi()
+                    .asWarningText(
+                        ""WARNING: Buck injected a parser state that may not match the local state.""));
+      }
+    }
+
+    return ExitCode.SUCCESS;
+  }
+
+  private void invalidateChanges(CommandRunnerParams params) throws IOException {
+    if (changesPath == null) {
+      return;
+    }
+    try (FileInputStream is = new FileInputStream(changesPath)) {
+      JsonNode responseNode = ObjectMappers.READER.readTree(is);",0,CVE-2018-6331,CWE-502,facebook/buck,8c5500981812564877bd122c0f8fab48d3528ddf,java
+"
+
+  private void invalidateChanges(CommandRunnerParams params) throws IOException {
+    if (changesPath == null) {
+      return;
+    }
+    try (FileInputStream is = new FileInputStream(changesPath)) {
+      JsonNode responseNode = ObjectMappers.READER.readTree(is);
+      Iterator<JsonNode> iterator = responseNode.elements();
+      while (iterator.hasNext()) {
+        JsonNode item = iterator.next();
+        String path = item.get(""path"").asText();
+        String status = item.get(""status"").asText();
+
+        boolean isAdded = false;
+        boolean isRemoved = false;
+        if (status.equals(""A"") || status.equals(""?"")) {
+          isAdded = true;
+        } else if (status.equals(""R"") || status.equals(""!"")) {
+          isRemoved = true;
+        }
+        Path fullPath = params.getCell().getRoot().resolve(path).normalize();
+        params.getParser().invalidateBasedOnPath(fullPath, isAdded || isRemoved);
+      }
+    }
+  }
+
+  @Override
+  public String getShortDescription() {
+    return ""Load and save state of the parser cache"";
+  }
+
+  @Override
+  public boolean isReadOnly() {
+    return false;
+  }
+}",0,CVE-2018-6331,CWE-502,facebook/buck,8c5500981812564877bd122c0f8fab48d3528ddf,java
+"
+  public void testSaveAndLoad() throws IOException {
+    assumeTrue(AppleNativeIntegrationTestUtils.isApplePlatformAvailable(ApplePlatform.MACOSX));
+
+    ProjectWorkspace workspace =
+        TestDataHelper.createProjectWorkspaceForScenario(this, ""parser_with_cell"", tmp);
+    workspace.setUp();
+
+    // Warm the parser cache.
+    TestContext context = new TestContext();
+    ProcessResult runBuckResult =
+        workspace.runBuckdCommand(context, ""query"", ""deps(//Apps:TestAppsLibrary)"");
+    runBuckResult.assertSuccess();
+    assertThat(
+        runBuckResult.getStdout(),
+        Matchers.containsString(
+            ""//Apps:TestAppsLibrary\n""
+                + ""//Libraries/Dep1:Dep1_1\n""
+                + ""//Libraries/Dep1:Dep1_2\n""
+                + ""bar//Dep2:Dep2""));
+
+    // Save the parser cache to a file.
+    NamedTemporaryFile tempFile = new NamedTemporaryFile(""parser_data"", null);
+    runBuckResult =
+        workspace.runBuckdCommand(context, ""parser-cache"", ""--save"", tempFile.get().toString());
+    runBuckResult.assertSuccess();
+
+    // Write an empty content to Apps/BUCK.
+    Path path = tmp.getRoot().resolve(""Apps/BUCK"");
+    byte[] data = {};
+    Files.write(path, data);
+
+    context = new TestContext();
+    // Load the parser cache to a new buckd context.
+    runBuckResult =
+        workspace.runBuckdCommand(context, ""parser-cache"", ""--load"", tempFile.get().toString());
+    runBuckResult.assertSuccess();
+
+    // Perform the query again. If we didn't load the parser cache, this call would fail because
+    // Apps/BUCK is empty.",0,CVE-2018-6331,CWE-502,facebook/buck,8c5500981812564877bd122c0f8fab48d3528ddf,java
+"
+  public void testInvalidate() throws IOException {
+    ProjectWorkspace workspace =
+        TestDataHelper.createProjectWorkspaceForScenario(this, ""parser_with_cell"", tmp);
+    workspace.setUp();
+
+    // Warm the parser cache.
+    TestContext context = new TestContext();
+    ProcessResult runBuckResult =
+        workspace.runBuckdCommand(context, ""query"", ""deps(//Apps:TestAppsLibrary)"");
+    runBuckResult.assertSuccess();
+    assertThat(
+        runBuckResult.getStdout(),
+        Matchers.containsString(
+            ""//Apps:TestAppsLibrary\n""
+                + ""//Libraries/Dep1:Dep1_1\n""
+                + ""//Libraries/Dep1:Dep1_2\n""
+                + ""bar//Dep2:Dep2""));
+
+    // Save the parser cache to a file.
+    NamedTemporaryFile tempFile = new NamedTemporaryFile(""parser_data"", null);
+    runBuckResult =
+        workspace.runBuckdCommand(context, ""parser-cache"", ""--save"", tempFile.get().toString());
+    runBuckResult.assertSuccess();
+
+    // Write an empty content to Apps/BUCK.
+    Path path = tmp.getRoot().resolve(""Apps/BUCK"");
+    byte[] data = {};
+    Files.write(path, data);
+
+    // Write an empty content to Apps/BUCK.
+    Path invalidationJsonPath = tmp.getRoot().resolve(""invalidation-data.json"");
+    String jsonData = ""[{\""path\"":\""Apps/BUCK\"",\""status\"":\""M\""}]"";
+    Files.write(invalidationJsonPath, jsonData.getBytes(StandardCharsets.UTF_8));
+
+    context = new TestContext();
+    // Load the parser cache to a new buckd context.
+    runBuckResult =
+        workspace.runBuckdCommand(
+            context,",0,CVE-2018-6331,CWE-502,facebook/buck,8c5500981812564877bd122c0f8fab48d3528ddf,java
+"
+
+    public BeanDeserializerFactory(DeserializerFactoryConfig config) {
+        super(config);
+    }
+    
+    /**
+     * Method used by module registration functionality, to construct a new bean
+     * deserializer factory
+     * with different configuration settings.
+     */
+    @Override
+    public DeserializerFactory withConfig(DeserializerFactoryConfig config)
+    {
+        if (_factoryConfig == config) {
+            return this;
+        }
+        /* 22-Nov-2010, tatu: Handling of subtypes is tricky if we do immutable-with-copy-ctor;
+         *    and we pretty much have to here either choose between losing subtype instance
+         *    when registering additional deserializers, or losing deserializers.
+         *    Instead, let's actually just throw an error if this method is called when subtype
+         *    has not properly overridden this method; this to indicate problem as soon as possible.
+         */
+        if (getClass() != BeanDeserializerFactory.class) {
+            throw new IllegalStateException(""Subtype of BeanDeserializerFactory (""+getClass().getName()
+                    +"") has not properly overridden method 'withAdditionalDeserializers': can not instantiate subtype with ""
+                    +""additional deserializer definitions"");
+        }
+        return new BeanDeserializerFactory(config);
+    }
+    
+    /*
+    /**********************************************************
+    /* DeserializerFactory API implementation
+    /**********************************************************
+     */
+
+    /**
+     * Method that {@link DeserializerCache}s call to create a new
+     * deserializer for types other than Collections, Maps, arrays and",0,CVE-2018-14718,CWE-502,FasterXML/jackson-databind,87d29af25e82a249ea15858e2d4ecbf64091db44,java
+"
+    public DeserializerFactory withConfig(DeserializerFactoryConfig config)
+    {
+        if (_factoryConfig == config) {
+            return this;
+        }
+        /* 22-Nov-2010, tatu: Handling of subtypes is tricky if we do immutable-with-copy-ctor;
+         *    and we pretty much have to here either choose between losing subtype instance
+         *    when registering additional deserializers, or losing deserializers.
+         *    Instead, let's actually just throw an error if this method is called when subtype
+         *    has not properly overridden this method; this to indicate problem as soon as possible.
+         */
+        if (getClass() != BeanDeserializerFactory.class) {
+            throw new IllegalStateException(""Subtype of BeanDeserializerFactory (""+getClass().getName()
+                    +"") has not properly overridden method 'withAdditionalDeserializers': can not instantiate subtype with ""
+                    +""additional deserializer definitions"");
+        }
+        return new BeanDeserializerFactory(config);
+    }
+    
+    /*
+    /**********************************************************
+    /* DeserializerFactory API implementation
+    /**********************************************************
+     */
+
+    /**
+     * Method that {@link DeserializerCache}s call to create a new
+     * deserializer for types other than Collections, Maps, arrays and
+     * enums.
+     */
+    @Override
+    public JsonDeserializer<Object> createBeanDeserializer(DeserializationContext ctxt,
+            JavaType type, BeanDescription beanDesc)
+        throws JsonMappingException
+    {
+        final DeserializationConfig config = ctxt.getConfig();
+        // We may also have custom overrides:
+        JsonDeserializer<Object> custom = _findCustomBeanDeserializer(type, config, beanDesc);
+        if (custom != null) {",0,CVE-2018-14718,CWE-502,FasterXML/jackson-databind,87d29af25e82a249ea15858e2d4ecbf64091db44,java
+"
+    public JsonDeserializer<Object> createBeanDeserializer(DeserializationContext ctxt,
+            JavaType type, BeanDescription beanDesc)
+        throws JsonMappingException
+    {
+        final DeserializationConfig config = ctxt.getConfig();
+        // We may also have custom overrides:
+        JsonDeserializer<Object> custom = _findCustomBeanDeserializer(type, config, beanDesc);
+        if (custom != null) {
+            return custom;
+        }
+        /* One more thing to check: do we have an exception type
+         * (Throwable or its sub-classes)? If so, need slightly
+         * different handling.
+         */
+        if (type.isThrowable()) {
+            return buildThrowableDeserializer(ctxt, type, beanDesc);
+        }
+        /* Or, for abstract types, may have alternate means for resolution
+         * (defaulting, materialization)
+         */
+        if (type.isAbstract()) {
+            // [JACKSON-41] (v1.6): Let's make it possible to materialize abstract types.
+            JavaType concreteType = materializeAbstractType(ctxt, type, beanDesc);
+            if (concreteType != null) {
+                /* important: introspect actual implementation (abstract class or
+                 * interface doesn't have constructors, for one)
+                 */
+                beanDesc = config.introspect(concreteType);
+                return buildBeanDeserializer(ctxt, concreteType, beanDesc);
+            }
+        }
+
+        // Otherwise, may want to check handlers for standard types, from superclass:
+        @SuppressWarnings(""unchecked"")
+        JsonDeserializer<Object> deser = (JsonDeserializer<Object>) findStdDeserializer(ctxt, type, beanDesc);
+        if (deser != null) {
+            return deser;
+        }
+",0,CVE-2018-14718,CWE-502,FasterXML/jackson-databind,87d29af25e82a249ea15858e2d4ecbf64091db44,java
+"
+
+	public WebXml getWebXml(FacesContext context) {
+		WebXml webXml = WebXml.getInstance(context);
+		if (null == webXml) {
+			throw new FacesException(
+					""Resources framework is not initialised, check web.xml for Filter configuration"");
+		}
+		return webXml;
+	}
+
+	public ResourceBuilderImpl() {
+		super();
+		_startTime = System.currentTimeMillis();
+		codec = new Codec();
+		renderers = new HashMap<String, ResourceRenderer>();
+		// append known renderers for extentions.
+		renderers.put("".gif"", new GifRenderer());
+		ResourceRenderer renderer = new JpegRenderer();
+		renderers.put("".jpeg"", renderer);
+		renderers.put("".jpg"", renderer);
+		renderers.put("".png"", new PngRenderer());
+		renderers.put("".js"", getScriptRenderer());
+		renderers.put("".css"", getStyleRenderer());
+		renderers.put("".log"", new LogfileRenderer());
+		renderers.put("".html"", new HTMLRenderer());
+		renderers.put("".xhtml"", new MimeRenderer(""application/xhtml+xml""));
+		renderers.put("".xml"", new MimeRenderer(""text/xml""));
+		renderers.put("".xcss"", new TemplateCSSRenderer());
+		renderers.put("".swf"", new MimeRenderer(""application/x-shockwave-flash""));
+	}
+
+	/**
+	 * @throws FacesException
+	 */
+	protected void registerResources() throws FacesException {
+		try {
+			ClassLoader loader = Thread.currentThread().getContextClassLoader();
+			Enumeration<URL> e = loader
+					.getResources(""META-INF/resources-config.xml"");",0,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+
+	public ResourceBuilderImpl() {
+		super();
+		_startTime = System.currentTimeMillis();
+		codec = new Codec();
+		renderers = new HashMap<String, ResourceRenderer>();
+		// append known renderers for extentions.
+		renderers.put("".gif"", new GifRenderer());
+		ResourceRenderer renderer = new JpegRenderer();
+		renderers.put("".jpeg"", renderer);
+		renderers.put("".jpg"", renderer);
+		renderers.put("".png"", new PngRenderer());
+		renderers.put("".js"", getScriptRenderer());
+		renderers.put("".css"", getStyleRenderer());
+		renderers.put("".log"", new LogfileRenderer());
+		renderers.put("".html"", new HTMLRenderer());
+		renderers.put("".xhtml"", new MimeRenderer(""application/xhtml+xml""));
+		renderers.put("".xml"", new MimeRenderer(""text/xml""));
+		renderers.put("".xcss"", new TemplateCSSRenderer());
+		renderers.put("".swf"", new MimeRenderer(""application/x-shockwave-flash""));
+	}
+
+	/**
+	 * @throws FacesException
+	 */
+	protected void registerResources() throws FacesException {
+		try {
+			ClassLoader loader = Thread.currentThread().getContextClassLoader();
+			Enumeration<URL> e = loader
+					.getResources(""META-INF/resources-config.xml"");
+			while (e.hasMoreElements()) {
+				URL resource = e.nextElement();
+				registerConfig(resource);
+			}
+		} catch (IOException e) {
+			throw new FacesException(e);
+		}
+	}
+",0,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	protected void registerResources() throws FacesException {
+		try {
+			ClassLoader loader = Thread.currentThread().getContextClassLoader();
+			Enumeration<URL> e = loader
+					.getResources(""META-INF/resources-config.xml"");
+			while (e.hasMoreElements()) {
+				URL resource = e.nextElement();
+				registerConfig(resource);
+			}
+		} catch (IOException e) {
+			throw new FacesException(e);
+		}
+	}
+
+	private void registerConfig(URL resourceConfig) {
+		try {
+			if (log.isDebugEnabled()) {
+				log.debug(""Process resources configuration file ""
+						+ resourceConfig.toExternalForm());
+			}
+
+			InputStream in = URLToStreamHelper.urlToStream(resourceConfig);
+			try {
+				Digester digester = new Digester();
+				digester.setValidating(false);
+				digester.setEntityResolver(new EntityResolver() {
+					// Dummi resolver - alvays do nothing
+					public InputSource resolveEntity(String publicId,
+							String systemId) throws SAXException, IOException {
+						return new InputSource(new StringReader(""""));
+					}
+				});
+				digester.setNamespaceAware(false);
+				digester.setUseContextClassLoader(true);
+				digester.push(this);
+				digester.addObjectCreate(""resource-config/resource"", ""class"",
+						JarResource.class);
+				digester.addObjectCreate(""resource-config/resource/renderer"",
+						""class"", HTMLRenderer.class);",0,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public UserResource(boolean cacheable, boolean session, String mime) {
+		super();		
+		setCacheable(cacheable);
+		setSessionAware(session);
+		setContentType(mime);
+	}
+	/**
+	 * @return Returns the contentType.
+	 */
+	public String getContentType(ResourceContext resourceContext) {
+		return contentType;
+	}
+	/**
+	 * @param contentType The contentType to set.
+	 */
+	public void setContentType(String contentType) {
+		this.contentType = contentType;
+	}
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#getDataToStore(javax.faces.context.FacesContext, java.lang.Object)
+	 */
+	public Object getDataToStore(FacesContext context, Object data) {
+		UriData dataToStore = null;
+		if (data instanceof ResourceComponent2) {
+			ResourceComponent2 resource = (ResourceComponent2) data;
+			dataToStore = new UriData();
+			dataToStore.value = resource.getValue();
+			dataToStore.createContent = UIComponentBase.saveAttachedState(context,resource.getCreateContentExpression());
+			if (data instanceof UIComponent) {
+				UIComponent component = (UIComponent) data;
+				ValueExpression expires = component.getValueExpression(""expires"");
+				if (null != expires) {
+					dataToStore.expires = UIComponentBase.saveAttachedState(context,expires);
+				}
+				ValueExpression lastModified = component.getValueExpression(""lastModified"");
+				if (null != lastModified) {
+					dataToStore.modified = UIComponentBase.saveAttachedState(context,lastModified);
+				}
+			}",0,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public String getContentType(ResourceContext resourceContext) {
+		return contentType;
+	}
+	/**
+	 * @param contentType The contentType to set.
+	 */
+	public void setContentType(String contentType) {
+		this.contentType = contentType;
+	}
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#getDataToStore(javax.faces.context.FacesContext, java.lang.Object)
+	 */
+	public Object getDataToStore(FacesContext context, Object data) {
+		UriData dataToStore = null;
+		if (data instanceof ResourceComponent2) {
+			ResourceComponent2 resource = (ResourceComponent2) data;
+			dataToStore = new UriData();
+			dataToStore.value = resource.getValue();
+			dataToStore.createContent = UIComponentBase.saveAttachedState(context,resource.getCreateContentExpression());
+			if (data instanceof UIComponent) {
+				UIComponent component = (UIComponent) data;
+				ValueExpression expires = component.getValueExpression(""expires"");
+				if (null != expires) {
+					dataToStore.expires = UIComponentBase.saveAttachedState(context,expires);
+				}
+				ValueExpression lastModified = component.getValueExpression(""lastModified"");
+				if (null != lastModified) {
+					dataToStore.modified = UIComponentBase.saveAttachedState(context,lastModified);
+				}
+			}
+		}
+		return dataToStore;
+	}
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#send(org.ajax4jsf.resource.ResourceContext)
+	 */
+	public void send(ResourceContext context) throws IOException {
+		UriData data = (UriData) restoreData(context);
+		FacesContext facesContext = FacesContext.getCurrentInstance();",0,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public void setContentType(String contentType) {
+		this.contentType = contentType;
+	}
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#getDataToStore(javax.faces.context.FacesContext, java.lang.Object)
+	 */
+	public Object getDataToStore(FacesContext context, Object data) {
+		UriData dataToStore = null;
+		if (data instanceof ResourceComponent2) {
+			ResourceComponent2 resource = (ResourceComponent2) data;
+			dataToStore = new UriData();
+			dataToStore.value = resource.getValue();
+			dataToStore.createContent = UIComponentBase.saveAttachedState(context,resource.getCreateContentExpression());
+			if (data instanceof UIComponent) {
+				UIComponent component = (UIComponent) data;
+				ValueExpression expires = component.getValueExpression(""expires"");
+				if (null != expires) {
+					dataToStore.expires = UIComponentBase.saveAttachedState(context,expires);
+				}
+				ValueExpression lastModified = component.getValueExpression(""lastModified"");
+				if (null != lastModified) {
+					dataToStore.modified = UIComponentBase.saveAttachedState(context,lastModified);
+				}
+			}
+		}
+		return dataToStore;
+	}
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#send(org.ajax4jsf.resource.ResourceContext)
+	 */
+	public void send(ResourceContext context) throws IOException {
+		UriData data = (UriData) restoreData(context);
+		FacesContext facesContext = FacesContext.getCurrentInstance();
+		if (null != data && null != facesContext ) {
+			// Send headers
+			ELContext elContext = facesContext.getELContext();
+//			if(data.expires != null){
+//				ValueExpression binding = (ValueExpression) UIComponentBase.restoreAttachedState(facesContext,data.expires);
+//				Date expires = (Date) binding.getValue(elContext);",0,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public MediaData() {
+	}
+	public Color getBackground() {
+		return Background;
+	}
+	public void setBackground(Color background) {
+		Background = background;
+	}
+	public Color getDrawColor() {
+		return DrawColor;
+	}
+	public void setDrawColor(Color drawColor) {
+		DrawColor = drawColor;
+	}
+	public Integer getHeight() {
+		return Height;
+	}
+	public void setHeight(Integer height) {
+		Height = height;
+	}
+	public Integer getWidth() {
+		return Width;
+	}
+	public void setWidth(Integer width) {
+		Width = width;
+	}
+}",0,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public Color getBackground() {
+		return Background;
+	}
+	public void setBackground(Color background) {
+		Background = background;
+	}
+	public Color getDrawColor() {
+		return DrawColor;
+	}
+	public void setDrawColor(Color drawColor) {
+		DrawColor = drawColor;
+	}
+	public Integer getHeight() {
+		return Height;
+	}
+	public void setHeight(Integer height) {
+		Height = height;
+	}
+	public Integer getWidth() {
+		return Width;
+	}
+	public void setWidth(Integer width) {
+		Width = width;
+	}
+}",0,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public void setBackground(Color background) {
+		Background = background;
+	}
+	public Color getDrawColor() {
+		return DrawColor;
+	}
+	public void setDrawColor(Color drawColor) {
+		DrawColor = drawColor;
+	}
+	public Integer getHeight() {
+		return Height;
+	}
+	public void setHeight(Integer height) {
+		Height = height;
+	}
+	public Integer getWidth() {
+		return Width;
+	}
+	public void setWidth(Integer width) {
+		Width = width;
+	}
+}",0,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+
+
+	public Integer getColor() {
+		return color;
+	}
+	public void setColor(Integer color) {
+		this.color = color;
+	}
+	public float getScale() {
+		return scale;
+	}
+	public void setScale(float scale) {
+		this.scale = scale;
+	}
+
+	public String getText() {
+		return text;
+	}
+	public void setText(String text) {
+		this.text = text;
+	}
+}",0,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public void setColor(Integer color) {
+		this.color = color;
+	}
+	public float getScale() {
+		return scale;
+	}
+	public void setScale(float scale) {
+		this.scale = scale;
+	}
+
+	public String getText() {
+		return text;
+	}
+	public void setText(String text) {
+		this.text = text;
+	}
+}",0,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public float getScale() {
+		return scale;
+	}
+	public void setScale(float scale) {
+		this.scale = scale;
+	}
+
+	public String getText() {
+		return text;
+	}
+	public void setText(String text) {
+		this.text = text;
+	}
+}",0,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public ResourceRenderer getRenderer() {
+		return _renderers[0];
+	}
+
+	public ResourceRenderer getRenderer(ResourceContext context) {
+		ImageData data = null;
+		
+		if (context != null) {
+			data = (ImageData) restoreData(context);
+		}
+		
+		ImageRenderer renderer = _renderers[null==data?0:data._format];
+		return renderer;
+	}
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#isCacheable()
+	 */
+	public boolean isCacheable() {
+		return false;
+	}
+	
+	public boolean isCacheable(ResourceContext resourceContext) {
+		ImageData data = (ImageData) restoreData(resourceContext);
+		return data.cacheable;
+	}
+
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#requireFacesContext()
+	 */
+	public boolean requireFacesContext() {
+		// work in context
+		return true;
+	}
+
+	
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#getDataToStore(javax.faces.context.FacesContext, java.lang.Object)
+	 */
+	protected Object getDataToStore(FacesContext context, Object data) {",0,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+
+	public ResourceRenderer getRenderer(ResourceContext context) {
+		ImageData data = null;
+		
+		if (context != null) {
+			data = (ImageData) restoreData(context);
+		}
+		
+		ImageRenderer renderer = _renderers[null==data?0:data._format];
+		return renderer;
+	}
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#isCacheable()
+	 */
+	public boolean isCacheable() {
+		return false;
+	}
+	
+	public boolean isCacheable(ResourceContext resourceContext) {
+		ImageData data = (ImageData) restoreData(resourceContext);
+		return data.cacheable;
+	}
+
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#requireFacesContext()
+	 */
+	public boolean requireFacesContext() {
+		// work in context
+		return true;
+	}
+
+	
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#getDataToStore(javax.faces.context.FacesContext, java.lang.Object)
+	 */
+	protected Object getDataToStore(FacesContext context, Object data) {
+		if (data instanceof UIPaint2D) {
+			UIPaint2D paint2D = (UIPaint2D) data;
+			ImageData dataToStore = new ImageData();",0,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public boolean isCacheable() {
+		return false;
+	}
+	
+	public boolean isCacheable(ResourceContext resourceContext) {
+		ImageData data = (ImageData) restoreData(resourceContext);
+		return data.cacheable;
+	}
+
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#requireFacesContext()
+	 */
+	public boolean requireFacesContext() {
+		// work in context
+		return true;
+	}
+
+	
+	/* (non-Javadoc)
+	 * @see org.ajax4jsf.resource.InternetResourceBase#getDataToStore(javax.faces.context.FacesContext, java.lang.Object)
+	 */
+	protected Object getDataToStore(FacesContext context, Object data) {
+		if (data instanceof UIPaint2D) {
+			UIPaint2D paint2D = (UIPaint2D) data;
+			ImageData dataToStore = new ImageData();
+			dataToStore._width = paint2D.getWidth();
+			dataToStore._height = paint2D.getHeight();
+			dataToStore._data = paint2D.getData();
+			
+			dataToStore._paint = UIComponentBase.saveAttachedState(context, paint2D.getPaint());
+			String format = paint2D.getFormat();
+			if(""jpeg"".equalsIgnoreCase(format)) {
+				dataToStore._format = 1;
+			} else if(""png"".equalsIgnoreCase(format)) {
+				dataToStore._format = 2;
+			}
+			
+			String bgColor = paint2D.getBgcolor();
+			try {",0,CVE-2013-4521,CWE-502,nuxeo/richfaces,6cbad2a6dcb70d3e33a6ce5879b1a3ad79eb1aec,java
+"
+	public static JsonParser create() {
+		return new JsonParser();
+	}
+
+	/**
+	 * Creates a lazy implementation of the JSON parser.
+	 */
+	public static JsonParser createLazyOne() {
+		return new JsonParser().lazy(true);
+	}
+
+	private static final char[] T_RUE = new char[] {'r', 'u', 'e'};
+	private static final char[] F_ALSE = new char[] {'a', 'l', 's', 'e'};
+	private static final char[] N_ULL = new char[] {'u', 'l', 'l'};
+
+	/**
+	 * Map keys.
+	 */
+	public static final String KEYS = ""keys"";
+	/**
+	 * Array or map values.
+	 */
+	public static final String VALUES = ""values"";
+
+	protected int ndx = 0;
+	protected char[] input;
+	protected int total;
+	protected Path path;
+	protected boolean useAltPaths = Defaults.useAltPathsByParser;
+	protected boolean lazy = Defaults.lazy;
+	protected boolean looseMode = Defaults.loose;
+	protected Class rootType;
+	protected MapToBean mapToBean;
+	private boolean notFirstObject = false;
+
+	private final JsonAnnotationManager jsonAnnotationManager;
+
+	public JsonParser() {
+		this.text = new char[512];",0,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+	public static JsonParser createLazyOne() {
+		return new JsonParser().lazy(true);
+	}
+
+	private static final char[] T_RUE = new char[] {'r', 'u', 'e'};
+	private static final char[] F_ALSE = new char[] {'a', 'l', 's', 'e'};
+	private static final char[] N_ULL = new char[] {'u', 'l', 'l'};
+
+	/**
+	 * Map keys.
+	 */
+	public static final String KEYS = ""keys"";
+	/**
+	 * Array or map values.
+	 */
+	public static final String VALUES = ""values"";
+
+	protected int ndx = 0;
+	protected char[] input;
+	protected int total;
+	protected Path path;
+	protected boolean useAltPaths = Defaults.useAltPathsByParser;
+	protected boolean lazy = Defaults.lazy;
+	protected boolean looseMode = Defaults.loose;
+	protected Class rootType;
+	protected MapToBean mapToBean;
+	private boolean notFirstObject = false;
+
+	private final JsonAnnotationManager jsonAnnotationManager;
+
+	public JsonParser() {
+		this.text = new char[512];
+		this.jsonAnnotationManager = JsonAnnotationManager.get();
+	}
+
+	/**
+	 * Resets JSON parser, so it can be reused.
+	 */
+	protected void reset() {",0,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+
+	public JsonParser() {
+		this.text = new char[512];
+		this.jsonAnnotationManager = JsonAnnotationManager.get();
+	}
+
+	/**
+	 * Resets JSON parser, so it can be reused.
+	 */
+	protected void reset() {
+		this.ndx = 0;
+		this.textLen = 0;
+		this.path = new Path();
+		if (useAltPaths) {
+			path.altPath = new Path();
+		}
+
+		if (classMetadataName != null) {
+			mapToBean = createMapToBean(classMetadataName);
+		}
+	}
+
+	/**
+	 * Enables usage of additional paths.
+	 */
+	public JsonParser useAltPaths() {
+		this.useAltPaths = true;
+		return this;
+	}
+
+	/**
+	 * Enables 'loose' mode for parsing. When 'loose' mode is enabled,
+	 * JSON parsers swallows also invalid JSONs:
+	 * <ul>
+	 *     <li>invalid escape character sequence is simply added to the output</li>
+	 *     <li>strings can be quoted with single-quotes</li>
+	 *     <li>strings can be unquoted, but may not contain escapes</li>
+	 * </ul>
+	 */",0,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+	protected MapToBean createMapToBean(final String classMetadataName) {
+		return new MapToBean(this, classMetadataName);
+	}
+
+	// ---------------------------------------------------------------- object tools
+
+	/**
+	 * Creates new type for JSON array objects.
+	 * It returns a collection.
+	 * Later, the collection will be converted into the target type.
+	 */
+	@SuppressWarnings(""unchecked"")
+	protected Collection<Object> newArrayInstance(final Class targetType) {
+		if (targetType == null ||
+			targetType == List.class ||
+			targetType == Collection.class ||
+			targetType.isArray()) {
+
+			return listSupplier.get();
+		}
+
+		if (targetType == Set.class) {
+			return new HashSet<>();
+		}
+
+		try {
+			return (Collection<Object>) targetType.getDeclaredConstructor().newInstance();
+		} catch (Exception e) {
+			throw new JsonException(e);
+		}
+	}
+
+	/**
+	 * Creates new object or a <code>HashMap</code> if type is not specified.
+	 */
+	protected Object newObjectInstance(final Class targetType) {
+		if (targetType == null ||
+			targetType == Map.class) {
+",0,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+	protected Collection<Object> newArrayInstance(final Class targetType) {
+		if (targetType == null ||
+			targetType == List.class ||
+			targetType == Collection.class ||
+			targetType.isArray()) {
+
+			return listSupplier.get();
+		}
+
+		if (targetType == Set.class) {
+			return new HashSet<>();
+		}
+
+		try {
+			return (Collection<Object>) targetType.getDeclaredConstructor().newInstance();
+		} catch (Exception e) {
+			throw new JsonException(e);
+		}
+	}
+
+	/**
+	 * Creates new object or a <code>HashMap</code> if type is not specified.
+	 */
+	protected Object newObjectInstance(final Class targetType) {
+		if (targetType == null ||
+			targetType == Map.class) {
+
+			return mapSupplier.get();
+		}
+
+		ClassDescriptor cd = ClassIntrospector.get().lookup(targetType);
+
+		CtorDescriptor ctorDescriptor = cd.getDefaultCtorDescriptor(true);
+		if (ctorDescriptor == null) {
+			throw new JsonException(""Default ctor not found for: "" + targetType.getName());
+		}
+
+		try {
+//			return ClassUtil.newInstance(targetType);",0,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+	protected Object newObjectInstance(final Class targetType) {
+		if (targetType == null ||
+			targetType == Map.class) {
+
+			return mapSupplier.get();
+		}
+
+		ClassDescriptor cd = ClassIntrospector.get().lookup(targetType);
+
+		CtorDescriptor ctorDescriptor = cd.getDefaultCtorDescriptor(true);
+		if (ctorDescriptor == null) {
+			throw new JsonException(""Default ctor not found for: "" + targetType.getName());
+		}
+
+		try {
+//			return ClassUtil.newInstance(targetType);
+			return ctorDescriptor.getConstructor().newInstance();
+		} catch (Exception e) {
+			throw new JsonException(e);
+		}
+	}
+
+	/**
+	 * Injects value into the targets property.
+	 */
+	protected void injectValueIntoObject(final Object target, final PropertyDescriptor pd, final Object value) {
+		Object convertedValue = value;
+
+		if (value != null) {
+			Class targetClass = pd.getType();
+
+			convertedValue = convertType(value, targetClass);
+		}
+
+		try {
+			Setter setter = pd.getSetter(true);
+			if (setter != null) {
+				setter.invokeSetter(target, convertedValue);
+			}",0,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+
+	public MapToBean(final JsonParserBase jsonParser, final String classMetadataName) {
+		this.jsonParser = jsonParser;
+		this.classMetadataName = classMetadataName;
+	}
+
+	/**
+	 * Converts map to target type.
+	 */
+	public Object map2bean(final Map map, Class targetType) {
+		Object target = null;
+
+		// create targets type
+		String className = (String) map.get(classMetadataName);
+
+		if (className == null) {
+			if (targetType == null) {
+				// nothing to do, no information about target type found
+				target = map;
+			}
+		}
+		else {
+			try {
+				targetType = ClassLoaderUtil.loadClass(className);
+			} catch (ClassNotFoundException cnfex) {
+				throw new JsonException(cnfex);
+			}
+		}
+
+		if (target == null) {
+			target = jsonParser.newObjectInstance(targetType);
+		}
+
+		ClassDescriptor cd = ClassIntrospector.get().lookup(target.getClass());
+
+		boolean targetIsMap = target instanceof Map;
+
+		for (Object key : map.keySet()) {
+			String keyName = key.toString();",0,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+	public Object map2bean(final Map map, Class targetType) {
+		Object target = null;
+
+		// create targets type
+		String className = (String) map.get(classMetadataName);
+
+		if (className == null) {
+			if (targetType == null) {
+				// nothing to do, no information about target type found
+				target = map;
+			}
+		}
+		else {
+			try {
+				targetType = ClassLoaderUtil.loadClass(className);
+			} catch (ClassNotFoundException cnfex) {
+				throw new JsonException(cnfex);
+			}
+		}
+
+		if (target == null) {
+			target = jsonParser.newObjectInstance(targetType);
+		}
+
+		ClassDescriptor cd = ClassIntrospector.get().lookup(target.getClass());
+
+		boolean targetIsMap = target instanceof Map;
+
+		for (Object key : map.keySet()) {
+			String keyName = key.toString();
+
+			if (classMetadataName != null) {
+				if (keyName.equals(classMetadataName)) {
+					continue;
+				}
+			}
+
+			PropertyDescriptor pd = cd.getPropertyDescriptor(keyName, declared);
+",0,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+				else if (value instanceof Map) {
+					// if the value we want to inject is a Map...
+					if (!ClassUtil.isTypeOf(propertyType, Map.class)) {
+						// ... and if target is NOT a map
+						value = map2bean((Map) value, propertyType);
+					}
+					else {
+						// target is also a Map, but we might need to generify it
+						Class keyType = pd == null ? null : pd.resolveKeyType(true);
+
+						if (keyType != String.class || componentType != String.class) {
+							// generify
+							value = generifyMap((Map) value, keyType, componentType);
+						}
+					}
+				}
+			}
+
+			if (targetIsMap) {
+				((Map)target).put(keyName, value);
+			}
+			else {
+				try {
+					setValue(target, pd, value);
+				} catch (Exception ignore) {
+					ignore.printStackTrace();
+				}
+			}
+		}
+
+		return target;
+	}
+
+	/**
+	 * Converts type of all list elements to match the component type.
+	 */
+	private Object generifyList(final List list, final Class componentType) {
+		for (int i = 0; i < list.size(); i++) {
+			Object element = list.get(i);",0,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+	void setUp() {
+		creator = new DataCreator();
+	}
+
+	@AfterEach
+	void tearDown() {
+		JsonParser.Defaults.classMetadataName = null;
+		JsonSerializer.Defaults.classMetadataName = null;
+	}
+
+	@Test
+	void testDeserializeNoIncludes() {
+		JsonParsers.forEachParser(jsonParser -> {
+			Person jodder = creator.createJodder();
+			String json = new JsonSerializer().serialize(jodder);
+			Person jsonJodder = jsonParser.parse(json, Person.class);
+
+			assertNotNull(jsonJodder);
+
+			assertEquals(jodder.getLastname(), jsonJodder.getLastname());
+			assertEquals(jodder.getFirstname(), jsonJodder.getFirstname());
+			assertEquals(jodder.getBirthdate(), jsonJodder.getBirthdate());
+
+			assertEquals(jodder.getHome().getState(), jsonJodder.getHome().getState());
+			assertEquals(jodder.getHome().getStreet(), jsonJodder.getHome().getStreet());
+			assertEquals(jodder.getHome().getCity(), jsonJodder.getHome().getCity());
+
+			assertEquals(jodder.getWork().getCity(), jsonJodder.getWork().getCity());
+
+			assertEquals(jsonJodder, jsonJodder.getWork().getPerson());
+
+			assertEquals(0, jsonJodder.getHobbies().size());
+		});
+	}
+
+	@Test
+	void testDeserializeWithPath() {
+		JsonParsers.forEachParser(jsonParser -> {
+",0,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+	void tearDown() {
+		JsonParser.Defaults.classMetadataName = null;
+		JsonSerializer.Defaults.classMetadataName = null;
+	}
+
+	@Test
+	void testDeserializeNoIncludes() {
+		JsonParsers.forEachParser(jsonParser -> {
+			Person jodder = creator.createJodder();
+			String json = new JsonSerializer().serialize(jodder);
+			Person jsonJodder = jsonParser.parse(json, Person.class);
+
+			assertNotNull(jsonJodder);
+
+			assertEquals(jodder.getLastname(), jsonJodder.getLastname());
+			assertEquals(jodder.getFirstname(), jsonJodder.getFirstname());
+			assertEquals(jodder.getBirthdate(), jsonJodder.getBirthdate());
+
+			assertEquals(jodder.getHome().getState(), jsonJodder.getHome().getState());
+			assertEquals(jodder.getHome().getStreet(), jsonJodder.getHome().getStreet());
+			assertEquals(jodder.getHome().getCity(), jsonJodder.getHome().getCity());
+
+			assertEquals(jodder.getWork().getCity(), jsonJodder.getWork().getCity());
+
+			assertEquals(jsonJodder, jsonJodder.getWork().getPerson());
+
+			assertEquals(0, jsonJodder.getHobbies().size());
+		});
+	}
+
+	@Test
+	void testDeserializeWithPath() {
+		JsonParsers.forEachParser(jsonParser -> {
+
+			Person igor = creator.createJodder();
+			Map map = new HashMap();
+			map.put(""person"", igor);
+
+			String json = new JsonSerializer().serialize(map);",0,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+	void testDeserializeNoIncludes() {
+		JsonParsers.forEachParser(jsonParser -> {
+			Person jodder = creator.createJodder();
+			String json = new JsonSerializer().serialize(jodder);
+			Person jsonJodder = jsonParser.parse(json, Person.class);
+
+			assertNotNull(jsonJodder);
+
+			assertEquals(jodder.getLastname(), jsonJodder.getLastname());
+			assertEquals(jodder.getFirstname(), jsonJodder.getFirstname());
+			assertEquals(jodder.getBirthdate(), jsonJodder.getBirthdate());
+
+			assertEquals(jodder.getHome().getState(), jsonJodder.getHome().getState());
+			assertEquals(jodder.getHome().getStreet(), jsonJodder.getHome().getStreet());
+			assertEquals(jodder.getHome().getCity(), jsonJodder.getHome().getCity());
+
+			assertEquals(jodder.getWork().getCity(), jsonJodder.getWork().getCity());
+
+			assertEquals(jsonJodder, jsonJodder.getWork().getPerson());
+
+			assertEquals(0, jsonJodder.getHobbies().size());
+		});
+	}
+
+	@Test
+	void testDeserializeWithPath() {
+		JsonParsers.forEachParser(jsonParser -> {
+
+			Person igor = creator.createJodder();
+			Map map = new HashMap();
+			map.put(""person"", igor);
+
+			String json = new JsonSerializer().serialize(map);
+
+			map = jsonParser.map(""values"", Person.class).parse(json);
+			Person jsonIgor = (Person) map.get(""person"");
+
+			assertNotNull(jsonIgor);
+",0,CVE-2018-21234,CWE-502,oblac/jodd,9bffc3913aeb8472c11bb543243004b4b4376f16,java
+"
+    public KubernetesResource(JobManager jobManager) {
+    	this.jobManager = jobManager;
+	}
+    
+	@Path(""/job-context"")
+	@Produces(MediaType.APPLICATION_OCTET_STREAM)
+    @GET
+    public byte[] getJobContext() {
+		JobContext context = jobManager.getJobContext(getJobToken(), true);
+		Map<String, Object> contextMap = new HashMap<>();
+		contextMap.put(""commands"", context.getCommands());
+		contextMap.put(""retrieveSource"", context.isRetrieveSource());
+		contextMap.put(""cloneDepth"", context.getCloneDepth());
+		contextMap.put(""projectName"", context.getProjectName());
+		contextMap.put(""cloneInfo"", context.getCloneInfo());
+		contextMap.put(""commitHash"", context.getCommitId().name());
+		contextMap.put(""collectFiles.includes"", context.getCollectFiles().getIncludes());
+		contextMap.put(""collectFiles.excludes"", context.getCollectFiles().getExcludes());
+		return SerializationUtils.serialize((Serializable) contextMap);
+    }
+	
+	@Path(""/allocate-job-caches"")
+	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
+	@Produces(MediaType.APPLICATION_OCTET_STREAM)
+    @POST
+    public byte[] allocateJobCaches(byte[] cacheAllocationRequestBytes) {
+		CacheAllocationRequest allocationRequest = (CacheAllocationRequest) SerializationUtils
+				.deserialize(cacheAllocationRequestBytes);
+		return SerializationUtils.serialize((Serializable) jobManager.allocateJobCaches(
+				getJobToken(), allocationRequest.getCurrentTime(), allocationRequest.getInstances()));
+    }
+	
+	@Path(""/report-job-caches"")
+	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
+	@POST
+	public void reportJobCaches(byte[] cacheInstanceBytes) {
+		@SuppressWarnings(""unchecked"")
+		Collection<CacheInstance> cacheInstances = (Collection<CacheInstance>) SerializationUtils
+				.deserialize(cacheInstanceBytes);",0,CVE-2021-21243,CWE-502,theonedev/onedev,9637fc8fa461c5777282a0021c3deb1e7a48f137,java
+"
+    public byte[] getJobContext() {
+		JobContext context = jobManager.getJobContext(getJobToken(), true);
+		Map<String, Object> contextMap = new HashMap<>();
+		contextMap.put(""commands"", context.getCommands());
+		contextMap.put(""retrieveSource"", context.isRetrieveSource());
+		contextMap.put(""cloneDepth"", context.getCloneDepth());
+		contextMap.put(""projectName"", context.getProjectName());
+		contextMap.put(""cloneInfo"", context.getCloneInfo());
+		contextMap.put(""commitHash"", context.getCommitId().name());
+		contextMap.put(""collectFiles.includes"", context.getCollectFiles().getIncludes());
+		contextMap.put(""collectFiles.excludes"", context.getCollectFiles().getExcludes());
+		return SerializationUtils.serialize((Serializable) contextMap);
+    }
+	
+	@Path(""/allocate-job-caches"")
+	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
+	@Produces(MediaType.APPLICATION_OCTET_STREAM)
+    @POST
+    public byte[] allocateJobCaches(byte[] cacheAllocationRequestBytes) {
+		CacheAllocationRequest allocationRequest = (CacheAllocationRequest) SerializationUtils
+				.deserialize(cacheAllocationRequestBytes);
+		return SerializationUtils.serialize((Serializable) jobManager.allocateJobCaches(
+				getJobToken(), allocationRequest.getCurrentTime(), allocationRequest.getInstances()));
+    }
+	
+	@Path(""/report-job-caches"")
+	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
+	@POST
+	public void reportJobCaches(byte[] cacheInstanceBytes) {
+		@SuppressWarnings(""unchecked"")
+		Collection<CacheInstance> cacheInstances = (Collection<CacheInstance>) SerializationUtils
+				.deserialize(cacheInstanceBytes);
+		jobManager.reportJobCaches(getJobToken(), cacheInstances);
+	}
+	
+	@Path(""/download-dependencies"")
+	@Produces(MediaType.APPLICATION_OCTET_STREAM)
+	@GET
+	public Response downloadDependencies() {",0,CVE-2021-21243,CWE-502,theonedev/onedev,9637fc8fa461c5777282a0021c3deb1e7a48f137,java
+"
+    public byte[] allocateJobCaches(byte[] cacheAllocationRequestBytes) {
+		CacheAllocationRequest allocationRequest = (CacheAllocationRequest) SerializationUtils
+				.deserialize(cacheAllocationRequestBytes);
+		return SerializationUtils.serialize((Serializable) jobManager.allocateJobCaches(
+				getJobToken(), allocationRequest.getCurrentTime(), allocationRequest.getInstances()));
+    }
+	
+	@Path(""/report-job-caches"")
+	@Consumes(MediaType.APPLICATION_OCTET_STREAM)
+	@POST
+	public void reportJobCaches(byte[] cacheInstanceBytes) {
+		@SuppressWarnings(""unchecked"")
+		Collection<CacheInstance> cacheInstances = (Collection<CacheInstance>) SerializationUtils
+				.deserialize(cacheInstanceBytes);
+		jobManager.reportJobCaches(getJobToken(), cacheInstances);
+	}
+	
+	@Path(""/download-dependencies"")
+	@Produces(MediaType.APPLICATION_OCTET_STREAM)
+	@GET
+	public Response downloadDependencies() {
+		StreamingOutput os = new StreamingOutput() {
+
+			@Override
+		   public void write(OutputStream output) throws IOException {
+				JobContext context = jobManager.getJobContext(getJobToken(), true);
+				TarUtils.tar(context.getServerWorkspace(), Lists.newArrayList(""**""), 
+						new ArrayList<>(), output);
+				output.flush();
+		   }				   
+		   
+		};
+		return Response.ok(os).build();
+	}
+	
+	@POST
+	@Path(""/upload-outcomes"")
+	@Consumes(MediaType.APPLICATION_OCTET_STREAM)	
+	public Response uploadOutcomes(InputStream is) {",0,CVE-2021-21243,CWE-502,theonedev/onedev,9637fc8fa461c5777282a0021c3deb1e7a48f137,java
+"
+    public XStream() {
+        this(null, (Mapper)null, new XppDriver());
+    }
+
+    /**
+     * Constructs an XStream with a special {@link ReflectionProvider}.
+     * <p>
+     * The instance will use the {@link XppDriver} as default.
+     * </p>
+     * 
+     * @param reflectionProvider the reflection provider to use or <em>null</em> for best matching reflection provider
+     * @throws InitializationException in case of an initialization problem
+     */
+    public XStream(ReflectionProvider reflectionProvider) {
+        this(reflectionProvider, (Mapper)null, new XppDriver());
+    }
+
+    /**
+     * Constructs an XStream with a special {@link HierarchicalStreamDriver}.
+     * <p>
+     * The instance will tries to determine the best match for the {@link ReflectionProvider} on its own.
+     * </p>
+     *
+     * @param hierarchicalStreamDriver the driver instance
+     * @throws InitializationException in case of an initialization problem
+     */
+    public XStream(HierarchicalStreamDriver hierarchicalStreamDriver) {
+        this(null, (Mapper)null, hierarchicalStreamDriver);
+    }
+
+    /**
+     * Constructs an XStream with a special {@link HierarchicalStreamDriver} and {@link ReflectionProvider}.
+     * 
+     * @param reflectionProvider the reflection provider to use or <em>null</em> for best matching Provider
+     * @param hierarchicalStreamDriver the driver instance
+     * @throws InitializationException in case of an initialization problem
+     */
+    public XStream(ReflectionProvider reflectionProvider, HierarchicalStreamDriver hierarchicalStreamDriver) {
+        this(reflectionProvider, (Mapper)null, hierarchicalStreamDriver);",0,CVE-2021-29505,CWE-502,x-stream/xstream,f0c4a8d861b68ffc3119cfbbbd632deee624e227,java
+"
+    public XStream(ReflectionProvider reflectionProvider) {
+        this(reflectionProvider, (Mapper)null, new XppDriver());
+    }
+
+    /**
+     * Constructs an XStream with a special {@link HierarchicalStreamDriver}.
+     * <p>
+     * The instance will tries to determine the best match for the {@link ReflectionProvider} on its own.
+     * </p>
+     *
+     * @param hierarchicalStreamDriver the driver instance
+     * @throws InitializationException in case of an initialization problem
+     */
+    public XStream(HierarchicalStreamDriver hierarchicalStreamDriver) {
+        this(null, (Mapper)null, hierarchicalStreamDriver);
+    }
+
+    /**
+     * Constructs an XStream with a special {@link HierarchicalStreamDriver} and {@link ReflectionProvider}.
+     * 
+     * @param reflectionProvider the reflection provider to use or <em>null</em> for best matching Provider
+     * @param hierarchicalStreamDriver the driver instance
+     * @throws InitializationException in case of an initialization problem
+     */
+    public XStream(ReflectionProvider reflectionProvider, HierarchicalStreamDriver hierarchicalStreamDriver) {
+        this(reflectionProvider, (Mapper)null, hierarchicalStreamDriver);
+    }
+
+    /**
+     * Constructs an XStream with a special {@link HierarchicalStreamDriver}, {@link ReflectionProvider} and a prepared
+     * {@link Mapper} chain.
+     * 
+     * @param reflectionProvider the reflection provider to use or <em>null</em> for best matching Provider
+     * @param mapper the instance with the {@link Mapper} chain or <em>null</em> for the default chain
+     * @param driver the driver instance
+     * @throws InitializationException in case of an initialization problem
+     * @deprecated As of 1.3, use {@link #XStream(ReflectionProvider, HierarchicalStreamDriver, ClassLoader, Mapper)}
+     *             instead
+     */",0,CVE-2021-29505,CWE-502,x-stream/xstream,f0c4a8d861b68ffc3119cfbbbd632deee624e227,java
+"
+    public XStream(HierarchicalStreamDriver hierarchicalStreamDriver) {
+        this(null, (Mapper)null, hierarchicalStreamDriver);
+    }
+
+    /**
+     * Constructs an XStream with a special {@link HierarchicalStreamDriver} and {@link ReflectionProvider}.
+     * 
+     * @param reflectionProvider the reflection provider to use or <em>null</em> for best matching Provider
+     * @param hierarchicalStreamDriver the driver instance
+     * @throws InitializationException in case of an initialization problem
+     */
+    public XStream(ReflectionProvider reflectionProvider, HierarchicalStreamDriver hierarchicalStreamDriver) {
+        this(reflectionProvider, (Mapper)null, hierarchicalStreamDriver);
+    }
+
+    /**
+     * Constructs an XStream with a special {@link HierarchicalStreamDriver}, {@link ReflectionProvider} and a prepared
+     * {@link Mapper} chain.
+     * 
+     * @param reflectionProvider the reflection provider to use or <em>null</em> for best matching Provider
+     * @param mapper the instance with the {@link Mapper} chain or <em>null</em> for the default chain
+     * @param driver the driver instance
+     * @throws InitializationException in case of an initialization problem
+     * @deprecated As of 1.3, use {@link #XStream(ReflectionProvider, HierarchicalStreamDriver, ClassLoader, Mapper)}
+     *             instead
+     */
+    public XStream(ReflectionProvider reflectionProvider, Mapper mapper, HierarchicalStreamDriver driver) {
+        this(reflectionProvider, driver, new CompositeClassLoader(), mapper);
+    }
+
+    /**
+     * Constructs an XStream with a special {@link HierarchicalStreamDriver}, {@link ReflectionProvider} and a
+     * {@link ClassLoaderReference}.
+     * 
+     * @param reflectionProvider the reflection provider to use or <em>null</em> for best matching Provider
+     * @param driver the driver instance
+     * @param classLoaderReference the reference to the {@link ClassLoader} to use
+     * @throws InitializationException in case of an init",0,CVE-2021-29505,CWE-502,x-stream/xstream,f0c4a8d861b68ffc3119cfbbbd632deee624e227,java
+"
+
+    public ScriptPluginProviderLoader(final File file, final File cachedir) {
+        this.file = file;
+        this.cachedir = cachedir;
+    }
+
+    @Override
+    public boolean canLoadForService(final FrameworkSupportService service) {
+        return service instanceof ScriptPluginProviderLoadable;
+    }
+
+    private PluginResourceLoader getResourceLoader() throws PluginException {
+        if (null == resourceLoader) {
+            synchronized (this) {
+                if (null == resourceLoader) {
+                    try {
+                        ZipResourceLoader loader = new ZipResourceLoader(
+                                new File(getFileCacheDir(), ""resources""),
+                                file,
+                                getPluginResourcesList(),
+                                getFileBasename() + ""/"" + getResourcesBasePath()
+                        );
+                        loader.extractResources();
+                        this.resourceLoader = loader;
+                    } catch (IOException e) {
+                        throw new PluginException(""Unable to expand plugin libs: "" + e.getMessage(), e);
+                    }
+                }
+            }
+        }
+        return resourceLoader;
+    }
+
+    @Override
+    public List<String> listResources() throws PluginException, IOException {
+        if (supportsResources(getPluginMeta())) {
+            return getResourceLoader().listResources();
+        }
+        return null;",0,CVE-2021-39132,CWE-502,rundeck/rundeck,850d12e21d22833bc148b7f458d7cb5949f829b6,java
+"
+    public boolean canLoadForService(final FrameworkSupportService service) {
+        return service instanceof ScriptPluginProviderLoadable;
+    }
+
+    private PluginResourceLoader getResourceLoader() throws PluginException {
+        if (null == resourceLoader) {
+            synchronized (this) {
+                if (null == resourceLoader) {
+                    try {
+                        ZipResourceLoader loader = new ZipResourceLoader(
+                                new File(getFileCacheDir(), ""resources""),
+                                file,
+                                getPluginResourcesList(),
+                                getFileBasename() + ""/"" + getResourcesBasePath()
+                        );
+                        loader.extractResources();
+                        this.resourceLoader = loader;
+                    } catch (IOException e) {
+                        throw new PluginException(""Unable to expand plugin libs: "" + e.getMessage(), e);
+                    }
+                }
+            }
+        }
+        return resourceLoader;
+    }
+
+    @Override
+    public List<String> listResources() throws PluginException, IOException {
+        if (supportsResources(getPluginMeta())) {
+            return getResourceLoader().listResources();
+        }
+        return null;
+    }
+
+    @Override
+    public InputStream openResourceStreamFor(final String name) throws PluginException, IOException {
+        if (supportsResources(getPluginMeta())) {
+            return getResourceLoader().openResourceStreamFor(name);
+        }",0,CVE-2021-39132,CWE-502,rundeck/rundeck,850d12e21d22833bc148b7f458d7cb5949f829b6,java
+"
+
+    private PluginResourceLoader getResourceLoader() throws PluginException {
+        if (null == resourceLoader) {
+            synchronized (this) {
+                if (null == resourceLoader) {
+                    try {
+                        ZipResourceLoader loader = new ZipResourceLoader(
+                                new File(getFileCacheDir(), ""resources""),
+                                file,
+                                getPluginResourcesList(),
+                                getFileBasename() + ""/"" + getResourcesBasePath()
+                        );
+                        loader.extractResources();
+                        this.resourceLoader = loader;
+                    } catch (IOException e) {
+                        throw new PluginException(""Unable to expand plugin libs: "" + e.getMessage(), e);
+                    }
+                }
+            }
+        }
+        return resourceLoader;
+    }
+
+    @Override
+    public List<String> listResources() throws PluginException, IOException {
+        if (supportsResources(getPluginMeta())) {
+            return getResourceLoader().listResources();
+        }
+        return null;
+    }
+
+    @Override
+    public InputStream openResourceStreamFor(final String name) throws PluginException, IOException {
+        if (supportsResources(getPluginMeta())) {
+            return getResourceLoader().openResourceStreamFor(name);
+        }
+        return null;
+    }
+",0,CVE-2021-39132,CWE-502,rundeck/rundeck,850d12e21d22833bc148b7f458d7cb5949f829b6,java
+"
+    public boolean isPacked(File workflowFile) throws IOException {
+        if (workflowFile.length() > singleFileSizeLimit) {
+            return false;
+        }
+        String fileContent = readFileToString(workflowFile);
+        return fileContent.contains(""$graph"");
+    }
+
+    /**
+     * Gets a list of workflows from a packed CWL file
+     * @param packedFile The packed CWL file
+     * @return The list of workflow overviews
+     */
+    public List<WorkflowOverview> getWorkflowOverviewsFromPacked(File packedFile) throws IOException {
+        if (packedFile.length() <= singleFileSizeLimit) {
+            List<WorkflowOverview> overviews = new ArrayList<>();
+
+            JsonNode packedJson = yamlPathToJson(packedFile.toPath());
+
+            if (packedJson.has(DOC_GRAPH)) {
+                for (JsonNode jsonNode : packedJson.get(DOC_GRAPH)) {
+                    if (extractProcess(jsonNode) == CWLProcess.WORKFLOW) {
+                        WorkflowOverview overview = new WorkflowOverview(jsonNode.get(ID).asText(),
+                                extractLabel(jsonNode), extractDoc(jsonNode));
+                        overviews.add(overview);
+                    }
+                }
+            } else {
+                throw new IOException(""The file given was not recognised as a packed CWL file"");
+            }
+
+            return overviews;
+
+        } else {
+            throw new IOException(""File '"" + packedFile.getName() +  ""' is over singleFileSizeLimit - "" +
+                    FileUtils.byteCountToDisplaySize(packedFile.length()) + ""/"" +
+                    FileUtils.byteCountToDisplaySize(singleFileSizeLimit));
+        }
+    }",0,CVE-2021-41110,CWE-502,common-workflow-language/cwlviewer,f6066f09edb70033a2ce80200e9fa9e70a5c29de,java
+"
+    public List<WorkflowOverview> getWorkflowOverviewsFromPacked(File packedFile) throws IOException {
+        if (packedFile.length() <= singleFileSizeLimit) {
+            List<WorkflowOverview> overviews = new ArrayList<>();
+
+            JsonNode packedJson = yamlPathToJson(packedFile.toPath());
+
+            if (packedJson.has(DOC_GRAPH)) {
+                for (JsonNode jsonNode : packedJson.get(DOC_GRAPH)) {
+                    if (extractProcess(jsonNode) == CWLProcess.WORKFLOW) {
+                        WorkflowOverview overview = new WorkflowOverview(jsonNode.get(ID).asText(),
+                                extractLabel(jsonNode), extractDoc(jsonNode));
+                        overviews.add(overview);
+                    }
+                }
+            } else {
+                throw new IOException(""The file given was not recognised as a packed CWL file"");
+            }
+
+            return overviews;
+
+        } else {
+            throw new IOException(""File '"" + packedFile.getName() +  ""' is over singleFileSizeLimit - "" +
+                    FileUtils.byteCountToDisplaySize(packedFile.length()) + ""/"" +
+                    FileUtils.byteCountToDisplaySize(singleFileSizeLimit));
+        }
+    }
+
+    /**
+     * Gets the Workflow object from internal parsing. 
+     * Note, the length of the stream is not checked.
+     *  
+     * @param workflowStream The workflow stream to be parsed
+     * @param packedWorkflowId The ID of the workflow object if the file is packed. <code>null</code> means the workflow is not expected to be packed, while """" means the first workflow found is used, packed or non-packed.
+     * @param defaultLabel Label to give workflow if not set
+     * @return The constructed workflow object
+     */
+    public Workflow parseWorkflowNative(InputStream workflowStream, String packedWorkflowId, String defaultLabel) throws IOException {
+        // Parse file as yaml
+        JsonNode cwlFile = yamlStreamToJson(workflowStream);",0,CVE-2021-41110,CWE-502,common-workflow-language/cwlviewer,f6066f09edb70033a2ce80200e9fa9e70a5c29de,java
+"
+    public Workflow parseWorkflowNative(InputStream workflowStream, String packedWorkflowId, String defaultLabel) throws IOException {
+        // Parse file as yaml
+        JsonNode cwlFile = yamlStreamToJson(workflowStream);
+
+        // Check packed workflow occurs
+        boolean found = false;
+        if (packedWorkflowId != null) {
+            if (cwlFile.has(DOC_GRAPH)) {
+                for (JsonNode jsonNode : cwlFile.get(DOC_GRAPH)) {
+                    if (extractProcess(jsonNode) == CWLProcess.WORKFLOW) {
+                        String currentId = jsonNode.get(ID).asText();
+                        if (currentId.startsWith(""#"")) {
+                            currentId = currentId.substring(1);
+                        }
+                        if (packedWorkflowId.isEmpty() || currentId.equals(packedWorkflowId)) {
+                            cwlFile = jsonNode;
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!found && ! packedWorkflowId.isEmpty()) throw new WorkflowNotFoundException();
+        }
+        if (! found && extractProcess(cwlFile) == CWLProcess.WORKFLOW) {
+        	// Check the current json node is a workflow
+        	found = true;
+        }
+        if (! found) {
+            throw new WorkflowNotFoundException();
+        }
+
+        // Use filename for label if there is no defined one
+        String label = extractLabel(cwlFile);
+        if (label == null) {
+            label = defaultLabel;
+        }
+
+        // Construct the rest of the workflow model",0,CVE-2021-41110,CWE-502,common-workflow-language/cwlviewer,f6066f09edb70033a2ce80200e9fa9e70a5c29de,java
+"
+
+    public static ParserConfig getGlobalInstance() {
+        return global;
+    }
+    public static ParserConfig                              global                = new ParserConfig();
+
+    private final IdentityHashMap<Type, ObjectDeserializer> deserializers         = new IdentityHashMap<Type, ObjectDeserializer>();
+    private final IdentityHashMap<Type, IdentityHashMap<Type, ObjectDeserializer>> mixInDeserializers = new IdentityHashMap<Type, IdentityHashMap<Type, ObjectDeserializer>>(16);
+    private final ConcurrentMap<String,Class<?>>            typeMapping           = new ConcurrentHashMap<String,Class<?>>(16, 0.75f, 1);
+
+    private boolean                                         asmEnable             = !ASMUtils.IS_ANDROID;
+
+    public final SymbolTable                                symbolTable           = new SymbolTable(4096);
+
+    public PropertyNamingStrategy                           propertyNamingStrategy;
+
+    protected ClassLoader                                   defaultClassLoader;
+
+    protected ASMDeserializerFactory                        asmFactory;
+
+    private static boolean                                  awtError              = false;
+    private static boolean                                  jdk8Error             = false;
+    private static boolean                                  jodaError             = false;
+    private static boolean                                  guavaError            = false;
+
+    private boolean                                         autoTypeSupport       = AUTO_SUPPORT;
+    private long[]                                          internalDenyHashCodes;
+    private long[]                                          denyHashCodes;
+    private long[]                                          acceptHashCodes;
+
+
+    public final boolean                                    fieldBased;
+    private boolean                                         jacksonCompatible     = false;
+
+    public boolean                         ",0,CVE-2022-25845,CWE-502,alibaba/fastjson,35db4adad70c32089542f23c272def1ad920a60d,java
+"
+
+    public ParserConfig(){
+        this(false);
+    }
+
+    public ParserConfig(boolean fieldBase){
+        this(null, null, fieldBase);
+    }
+
+    public ParserConfig(ClassLoader parentClassLoader){
+        this(null, parentClassLoader, false);
+    }
+
+    public ParserConfig(ASMDeserializerFactory asmFactory){
+        this(asmFactory, null, false);
+    }
+
+    private ParserConfig(ASMDeserializerFactory asmFactory, ClassLoader parentClassLoader, boolean fieldBased){
+        this.fieldBased = fieldBased;
+        if (asmFactory == null && !ASMUtils.IS_ANDROID) {
+            try {
+                if (parentClassLoader == null) {
+                    asmFactory = new ASMDeserializerFactory(new ASMClassLoader());
+                } else {
+                    asmFactory = new ASMDeserializerFactory(parentClassLoader);
+                }
+            } catch (ExceptionInInitializerError error) {
+                // skip
+            } catch (AccessControlException error) {
+                // skip
+            } catch (NoClassDefFoundError error) {
+                // skip
+            }
+        }
+
+        this.asmFactory = asmFactory;
+
+        if (asmFactory == null) {
+            asmEnable = false;",0,CVE-2022-25845,CWE-502,alibaba/fastjson,35db4adad70c32089542f23c272def1ad920a60d,java
+"
+
+    public ParserConfig(boolean fieldBase){
+        this(null, null, fieldBase);
+    }
+
+    public ParserConfig(ClassLoader parentClassLoader){
+        this(null, parentClassLoader, false);
+    }
+
+    public ParserConfig(ASMDeserializerFactory asmFactory){
+        this(asmFactory, null, false);
+    }
+
+    private ParserConfig(ASMDeserializerFactory asmFactory, ClassLoader parentClassLoader, boolean fieldBased){
+        this.fieldBased = fieldBased;
+        if (asmFactory == null && !ASMUtils.IS_ANDROID) {
+            try {
+                if (parentClassLoader == null) {
+                    asmFactory = new ASMDeserializerFactory(new ASMClassLoader());
+                } else {
+                    asmFactory = new ASMDeserializerFactory(parentClassLoader);
+                }
+            } catch (ExceptionInInitializerError error) {
+                // skip
+            } catch (AccessControlException error) {
+                // skip
+            } catch (NoClassDefFoundError error) {
+                // skip
+            }
+        }
+
+        this.asmFactory = asmFactory;
+
+        if (asmFactory == null) {
+            asmEnable = false;
+        }
+
+        initDeserializers();
+",0,CVE-2022-25845,CWE-502,alibaba/fastjson,35db4adad70c32089542f23c272def1ad920a60d,java
+"
+	public void test_exception() throws Exception {
+		RuntimeException ex = new RuntimeException(""e1"");
+		String text = JSON.toJSONString(ex);
+		System.out.println(text);
+		
+		RuntimeException ex2 = (RuntimeException) JSON.parse(text);
+	}
+}",0,CVE-2022-25845,CWE-502,alibaba/fastjson,35db4adad70c32089542f23c272def1ad920a60d,java
+"
+    public void handleRequest(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        try {
+            RemoteInvocation invocation = readRemoteInvocation(request);
+
+            if (!authorized(request, response, invocation)) {
+                return;
+            }
+
+            RemoteInvocationResult result = invokeAndCreateResult(invocation, getProxy());
+            writeRemoteInvocationResult(request, response, result);
+        } catch (ClassNotFoundException ex) {
+            throw new NestedServletException(""Class not found during deserialization"", ex);
+        }
+    }
+
+    /**
+     * Verifies that the agent UUID from the deserialized payload matches the UUID permitted by the agent authentication
+     * filter.
+     *
+     * @param request    the {@link HttpServletRequest}
+     * @param response   the {@link HttpServletResponse}
+     * @param invocation the deserialized {@link RemoteInvocation} payload
+     * @return true if authorized; false otherwise
+     * @throws IOException on error while writing a response back to the client
+     */
+    private boolean authorized(HttpServletRequest request, HttpServletResponse response, RemoteInvocation invocation) throws IOException {
+        final String uuid = request.getHeader(""X-Agent-GUID""); // should never be null since we passed the auth filter
+        final MethodSignature current = new MethodSignature(invocation);
+
+        LOG.debug(format(""Checking authorization for agent [%s] on invocation: %s"", uuid, invocation));
+
+        if (KNOWN_METHODS_NEEDING_UUID_VALIDATION.contains(current)) {
+            final String askingFor = AgentUUID.fromRuntimeInfo0(invocation.getArguments());
+
+            if (!uuid.equals(askingFor)) {
+                LOG.error(format(""DENYING REQUEST: Agent [%s] is attempting a request on behalf of [%s]: %s"", uuid, askingFor, invocation));
+                reject(response, SC_FORBIDDEN, ""Not allowing request on behalf of another agent"");
+       ",0,CVE-2022-39311,CWE-502,gocd/gocd,7b88b70d6f7f429562d5cab49a80ea856e34cdc8,java
+"
+    private boolean authorized(HttpServletRequest request, HttpServletResponse response, RemoteInvocation invocation) throws IOException {
+        final String uuid = request.getHeader(""X-Agent-GUID""); // should never be null since we passed the auth filter
+        final MethodSignature current = new MethodSignature(invocation);
+
+        LOG.debug(format(""Checking authorization for agent [%s] on invocation: %s"", uuid, invocation));
+
+        if (KNOWN_METHODS_NEEDING_UUID_VALIDATION.contains(current)) {
+            final String askingFor = AgentUUID.fromRuntimeInfo0(invocation.getArguments());
+
+            if (!uuid.equals(askingFor)) {
+                LOG.error(format(""DENYING REQUEST: Agent [%s] is attempting a request on behalf of [%s]: %s"", uuid, askingFor, invocation));
+                reject(response, SC_FORBIDDEN, ""Not allowing request on behalf of another agent"");
+                return false;
+            }
+        } else {
+            LOG.error(format(""DENYING REQUEST: Agent [%s] is requesting an unknown method invocation: %s"", uuid, invocation));
+            reject(response, SC_BAD_REQUEST, format(""Unknown invocation: %s"", invocation));
+            return false;
+        }
+
+        LOG.debug(format(""ALLOWING REQUEST: Agent [%s] is authorized to invoke: %s"", uuid, invocation));
+        return true;
+    }
+
+    /**
+     * Returns a plaintext error response back to the agent on failure
+     *
+     * @param response   the {@link HttpServletResponse}
+     * @param statusCode the HTTP status code
+     * @param msg        the error message
+     * @throws IOException on error while writing a response back to the client
+     */
+    private void reject(HttpServletResponse response, int statusCode, String msg) throws IOException {
+        response.setStatus(statusCode);
+        response.setContentType(""text/plain"");
+        final PrintWriter writer = response.getWriter();
+        writer.println(msg);
+        writer.flush();
+        writer.close();",0,CVE-2022-39311,CWE-502,gocd/gocd,7b88b70d6f7f429562d5cab49a80ea856e34cdc8,java
+"
+    private void reject(HttpServletResponse response, int statusCode, String msg) throws IOException {
+        response.setStatus(statusCode);
+        response.setContentType(""text/plain"");
+        final PrintWriter writer = response.getWriter();
+        writer.println(msg);
+        writer.flush();
+        writer.close();
+    }
+
+    /**
+     * Just a container class to hold functions to extract the agent UUID from deserialized payloads
+     */
+    private static class AgentUUID {
+        private static String fromRuntimeInfo0(Object[] args) {
+            return ((AgentRuntimeInfo) args[0]).getIdentifier().getUuid();
+        }
+    }
+
+    /**
+     * Helper class to make RMI method matching easier
+     */
+    private static class MethodSignature {
+        private final String name;
+        private final Class<?>[] paramTypes;
+
+        private MethodSignature(RemoteInvocation invocation) {
+            this(invocation.getMethodName(), invocation.getParameterTypes());
+        }
+
+        private MethodSignature(String name, Class<?>... paramTypes) {
+            this.name = name;
+            this.paramTypes = paramTypes;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            MethodSignature that = (MethodSignature) o;",0,CVE-2022-39311,CWE-502,gocd/gocd,7b88b70d6f7f429562d5cab49a80ea856e34cdc8,java
+"
+    void setup() throws Exception {
+        openMocks(this).close();
+        req = new MockHttpServletRequest();
+        req.addHeader(""X-Agent-GUID"", AGENT_UUID);
+        res = new MockHttpServletResponse();
+    }
+
+    @Test
+    void isIgnored_allowedForSameUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(AGENT_UUID);
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""isIgnored"", new Class[]{AgentRuntimeInfo.class, JobIdentifier.class}, new Object[]{agent, null}), target);
+        invoker.handleRequest(req, res);
+        verify(target, only()).isIgnored(agent, null);
+        assertEquals(SC_OK, res.getStatus());
+    }
+
+    @Test
+    void isIgnored_rejectedForDifferentUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(""other"");
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""isIgnored"", new Class[]{AgentRuntimeInfo.class, JobIdentifier.class}, new Object[]{agent, null}), target);
+        invoker.handleRequest(req, res);
+        verify(target, never()).isIgnored(any(AgentRuntimeInfo.class), any(JobIdentifier.class));
+        assertEquals(SC_FORBIDDEN, res.getStatus());
+    }
+
+    @Test
+    void ping_allowedForSameUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(AGENT_UUID);
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""ping"", new Class[]{AgentRuntimeInfo.class}, new Object[]{agent}), target);
+        invoker.handleRequest(req, res);
+        verify(target, only()).ping(agent);
+        assertEquals(SC_OK, res.getStatus());
+    }
+
+    @Test
+    void ping_rejectedForDifferentUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(""other"");
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""ping"", new Class[]{AgentRuntimeInfo.class}, new Object[]{agent}), target);
+        invok",0,CVE-2022-39311,CWE-502,gocd/gocd,7b88b70d6f7f429562d5cab49a80ea856e34cdc8,java
+"
+    void isIgnored_allowedForSameUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(AGENT_UUID);
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""isIgnored"", new Class[]{AgentRuntimeInfo.class, JobIdentifier.class}, new Object[]{agent, null}), target);
+        invoker.handleRequest(req, res);
+        verify(target, only()).isIgnored(agent, null);
+        assertEquals(SC_OK, res.getStatus());
+    }
+
+    @Test
+    void isIgnored_rejectedForDifferentUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(""other"");
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""isIgnored"", new Class[]{AgentRuntimeInfo.class, JobIdentifier.class}, new Object[]{agent, null}), target);
+        invoker.handleRequest(req, res);
+        verify(target, never()).isIgnored(any(AgentRuntimeInfo.class), any(JobIdentifier.class));
+        assertEquals(SC_FORBIDDEN, res.getStatus());
+    }
+
+    @Test
+    void ping_allowedForSameUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(AGENT_UUID);
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""ping"", new Class[]{AgentRuntimeInfo.class}, new Object[]{agent}), target);
+        invoker.handleRequest(req, res);
+        verify(target, only()).ping(agent);
+        assertEquals(SC_OK, res.getStatus());
+    }
+
+    @Test
+    void ping_rejectedForDifferentUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(""other"");
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""ping"", new Class[]{AgentRuntimeInfo.class}, new Object[]{agent}), target);
+        invoker.handleRequest(req, res);
+        verify(target, never()).ping(any(AgentRuntimeInfo.class));
+        assertEquals(SC_FORBIDDEN, res.getStatus());
+    }
+
+    @Test
+    void getWork_allowedForSameUUID() throws Exception {
+    ",0,CVE-2022-39311,CWE-502,gocd/gocd,7b88b70d6f7f429562d5cab49a80ea856e34cdc8,java
+"
+    void isIgnored_rejectedForDifferentUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(""other"");
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""isIgnored"", new Class[]{AgentRuntimeInfo.class, JobIdentifier.class}, new Object[]{agent, null}), target);
+        invoker.handleRequest(req, res);
+        verify(target, never()).isIgnored(any(AgentRuntimeInfo.class), any(JobIdentifier.class));
+        assertEquals(SC_FORBIDDEN, res.getStatus());
+    }
+
+    @Test
+    void ping_allowedForSameUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(AGENT_UUID);
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""ping"", new Class[]{AgentRuntimeInfo.class}, new Object[]{agent}), target);
+        invoker.handleRequest(req, res);
+        verify(target, only()).ping(agent);
+        assertEquals(SC_OK, res.getStatus());
+    }
+
+    @Test
+    void ping_rejectedForDifferentUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(""other"");
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""ping"", new Class[]{AgentRuntimeInfo.class}, new Object[]{agent}), target);
+        invoker.handleRequest(req, res);
+        verify(target, never()).ping(any(AgentRuntimeInfo.class));
+        assertEquals(SC_FORBIDDEN, res.getStatus());
+    }
+
+    @Test
+    void getWork_allowedForSameUUID() throws Exception {
+        final AgentRuntimeInfo agent = runtimeInfo(AGENT_UUID);
+        final AgentRemoteInvokerServiceExporter invoker = deserializingWith(new RemoteInvocation(""getWork"", new Class[]{AgentRuntimeInfo.class}, new Object[]{agent}), target);
+        invoker.handleRequest(req, res);
+        verify(target, only()).getWork(agent);
+        assertEquals(SC_OK, res.getStatus());
+    }
+
+    @Test
+    void getWork_rejectedForDifferentUUID() throws Exception {
+        final AgentRuntimeInfo agent ",0,CVE-2022-39311,CWE-502,gocd/gocd,7b88b70d6f7f429562d5cab49a80ea856e34cdc8,java
+"
+
+    public String getJdbc() {
+        if(StringUtils.isEmpty(extraParams.trim())){
+            return ""jdbc:mysql://HOSTNAME:PORT/DATABASE""
+                    .replace(""HOSTNAME"", getHost().trim())
+                    .replace(""PORT"", getPort().toString().trim())
+                    .replace(""DATABASE"", getDataBase().trim());
+        }else {
+            return ""jdbc:mysql://HOSTNAME:PORT/DATABASE?EXTRA_PARAMS""
+                    .replace(""HOSTNAME"", getHost().trim())
+                    .replace(""PORT"", getPort().toString().trim())
+                    .replace(""DATABASE"", getDataBase().trim())
+                    .replace(""EXTRA_PARAMS"", getExtraParams().trim());
+        }
+    }
+}",0,CVE-2022-39312,CWE-502,dataease/dataease,956ee2d6c9e81349a60aef435efc046888e10a6d,java

@@ -1,0 +1,4083 @@
+func_src,label,cve_id,cwe,repo,commit,language
+"function parse (sri, opts) {
+  opts = opts || {}
+  if (typeof sri === 'string') {
+    return _parse(sri, opts)
+  } else if (sri.algorithm && sri.digest) {
+    const fullSri = new Integrity()
+    fullSri[sri.algorithm] = [sri]
+    return _parse(stringify(fullSri, opts), opts)
+  } else {
+    return _parse(stringify(sri, opts), opts)
+  }
+}
+
+function _parse (integrity, opts) {
+  // 3.4.3. Parse metadata
+  // https://w3c.github.io/webappsec-subresource-integrity/#parse-metadata
+  if (opts.single) {
+    return new Hash(integrity, opts)
+  }
+  return integrity.trim().split(/\s+/).reduce((acc, string) => {
+    const hash = new Hash(string, opts)
+    if (hash.algorithm && hash.digest) {
+      const algo = hash.algorithm
+      if (!acc[algo]) { acc[algo] = [] }
+      acc[algo].push(hash)
+    }
+    return acc
+  }, new Integrity())
+}
+
+module.exports.stringify = stringify
+function stringify (obj, opts) {
+  if (obj.algorithm && obj.digest) {
+    return Hash.prototype.toString.call(obj, opts)
+  } else if (typeof obj === 'string') {
+    return stringify(parse(obj, opts), opts)
+  } else {
+    return Integrity.prototype.toString.call(obj, opts)
+  }
+}",1,CVE-2018-7651,CWE-400,zkat/ssri,d0ebcdc22cb5c8f47f89716d08b3518b2485d65d,javascript
+"function _parse (integrity, opts) {
+  // 3.4.3. Parse metadata
+  // https://w3c.github.io/webappsec-subresource-integrity/#parse-metadata
+  if (opts.single) {
+    return new Hash(integrity, opts)
+  }
+  return integrity.trim().split(/\s+/).reduce((acc, string) => {
+    const hash = new Hash(string, opts)
+    if (hash.algorithm && hash.digest) {
+      const algo = hash.algorithm
+      if (!acc[algo]) { acc[algo] = [] }
+      acc[algo].push(hash)
+    }
+    return acc
+  }, new Integrity())
+}
+
+module.exports.stringify = stringify
+function stringify (obj, opts) {
+  if (obj.algorithm && obj.digest) {
+    return Hash.prototype.toString.call(obj, opts)
+  } else if (typeof obj === 'string') {
+    return stringify(parse(obj, opts), opts)
+  } else {
+    return Integrity.prototype.toString.call(obj, opts)
+  }
+}
+
+module.exports.fromHex = fromHex
+function fromHex (hexDigest, algorithm, opts) {
+  const optString = (opts && opts.options && opts.options.length)
+  ? `?${opts.options.join('?')}`
+  : ''
+  return parse(
+    `${algorithm}-${
+      Buffer.from(hexDigest, 'hex').toString('base64')
+    }${optString}`, opts
+  )
+}
+",1,CVE-2018-7651,CWE-400,zkat/ssri,d0ebcdc22cb5c8f47f89716d08b3518b2485d65d,javascript
+"function stringify (obj, opts) {
+  if (obj.algorithm && obj.digest) {
+    return Hash.prototype.toString.call(obj, opts)
+  } else if (typeof obj === 'string') {
+    return stringify(parse(obj, opts), opts)
+  } else {
+    return Integrity.prototype.toString.call(obj, opts)
+  }
+}
+
+module.exports.fromHex = fromHex
+function fromHex (hexDigest, algorithm, opts) {
+  const optString = (opts && opts.options && opts.options.length)
+  ? `?${opts.options.join('?')}`
+  : ''
+  return parse(
+    `${algorithm}-${
+      Buffer.from(hexDigest, 'hex').toString('base64')
+    }${optString}`, opts
+  )
+}
+
+module.exports.fromData = fromData
+function fromData (data, opts) {
+  opts = opts || {}
+  const algorithms = opts.algorithms || ['sha512']
+  const optString = opts.options && opts.options.length
+  ? `?${opts.options.join('?')}`
+  : ''
+  return algorithms.reduce((acc, algo) => {
+    const digest = crypto.createHash(algo).update(data).digest('base64')
+    const hash = new Hash(
+      `${algo}-${digest}${optString}`,
+       opts
+    )
+    if (hash.algorithm && hash.digest) {
+      const algo = hash.algorithm
+      if (!acc[algo]) { acc[algo] = [] }
+      acc[algo].push(hash)
+    }",1,CVE-2018-7651,CWE-400,zkat/ssri,d0ebcdc22cb5c8f47f89716d08b3518b2485d65d,javascript
+"function hash (data, algorithm) {
+  return crypto.createHash(algorithm).update(data).digest('base64')
+}
+
+test('serializes Integrity-likes', t => {
+  const sriLike = {
+    'sha512': [{
+      digest: 'foo',
+      algorithm: 'sha512',
+      options: ['ayy', 'woo']
+    }, {
+      digest: 'bar',
+      algorithm: 'sha512'
+    }],
+    'whirlpool': [{
+      digest: 'wut',
+      algorithm: 'whirlpool'
+    }]
+  }
+  t.equal(
+    ssri.stringify(sriLike),
+    'sha512-foo?ayy?woo sha512-bar whirlpool-wut',
+    'stringification contains correct data for all entries'
+  )
+  t.done()
+})
+
+test('serializes Hash-likes', t => {
+  const sriLike = {
+    digest: 'foo',
+    algorithm: 'sha512'
+  }
+  t.equal(
+    ssri.stringify(sriLike),
+    'sha512-foo',
+    'serialization has correct data'
+  )
+  t.done()
+})
+",1,CVE-2018-7651,CWE-400,zkat/ssri,d0ebcdc22cb5c8f47f89716d08b3518b2485d65d,javascript
+"var configure = function( app, configObject ) {
+	if( typeof configObject !== ""undefined"" ) {
+		configuration.directory = configObject.directory || configuration.directory;
+		configuration.extension = configObject.extension || configuration.extension;
+		configuration.objectNotation = configObject.objectNotation || configuration.objectNotation;
+	}
+
+	// Register routes
+	app.get( ""/i18n/:locale"", i18nRoutes.i18n );
+	app.get( ""/i18n/:locale/:phrase"", i18nRoutes.translate );
+};
+
+/**
+ * Middleware to allow retrieval of users locale in the template engine.
+ * @param {Object} request
+ * @param {Object} response
+ * @param {Function} [next]
+ */
+var getLocale = function( request, response, next ) {
+	response.locals.i18n = {
+		getLocale : function() {
+			return i18n.getLocale.apply( request, arguments );
+		}
+	};
+
+	// For backwards compatibility, also define ""acceptedLanguage"".
+	response.locals.acceptedLanguage = response.locals.i18n.getLocale;
+
+	if( typeof next !== ""undefined"" ) {
+		next();
+	}
+};
+
+var i18nRoutes = {
+	/**
+	 * Sends a translation file to the client.
+	 * @param request
+	 * @param response
+	 */
+	i18n : function( request, response ) {",1,CVE-2016-10524,CWE-400,oliversalzburg/i18n-node-angular,877720d2d9bb90dc8233706e81ffa03f99fc9dc8,javascript
+"var getLocale = function( request, response, next ) {
+	response.locals.i18n = {
+		getLocale : function() {
+			return i18n.getLocale.apply( request, arguments );
+		}
+	};
+
+	// For backwards compatibility, also define ""acceptedLanguage"".
+	response.locals.acceptedLanguage = response.locals.i18n.getLocale;
+
+	if( typeof next !== ""undefined"" ) {
+		next();
+	}
+};
+
+var i18nRoutes = {
+	/**
+	 * Sends a translation file to the client.
+	 * @param request
+	 * @param response
+	 */
+	i18n : function( request, response ) {
+		var locale = request.params.locale;
+		var sendFile = response.sendFile || response.sendfile;
+		sendFile.apply( response, [ path.join( configuration.directory, locale + configuration.extension ) ] );
+	},
+
+	/**
+	 * Translate a given string and provide the result.
+	 * @param request
+	 * @param response
+	 */
+	translate : function( request, response ) {
+		var locale = request.params.locale;
+		var phrase = request.params.phrase;
+
+		var result;
+		if( request.query.plural ) {
+			var singular = phrase;
+			var plural = request.query.plural;",1,CVE-2016-10524,CWE-400,oliversalzburg/i18n-node-angular,877720d2d9bb90dc8233706e81ffa03f99fc9dc8,javascript
+"getLocale : function() {
+			return i18n.getLocale.apply( request, arguments );
+		}
+	};
+
+	// For backwards compatibility, also define ""acceptedLanguage"".
+	response.locals.acceptedLanguage = response.locals.i18n.getLocale;
+
+	if( typeof next !== ""undefined"" ) {
+		next();
+	}
+};
+
+var i18nRoutes = {
+	/**
+	 * Sends a translation file to the client.
+	 * @param request
+	 * @param response
+	 */
+	i18n : function( request, response ) {
+		var locale = request.params.locale;
+		var sendFile = response.sendFile || response.sendfile;
+		sendFile.apply( response, [ path.join( configuration.directory, locale + configuration.extension ) ] );
+	},
+
+	/**
+	 * Translate a given string and provide the result.
+	 * @param request
+	 * @param response
+	 */
+	translate : function( request, response ) {
+		var locale = request.params.locale;
+		var phrase = request.params.phrase;
+
+		var result;
+		if( request.query.plural ) {
+			var singular = phrase;
+			var plural = request.query.plural;
+			// Make sure the information is added to the catalog if it doesn't exist yet.
+			var translated = i18n.__n( {",1,CVE-2016-10524,CWE-400,oliversalzburg/i18n-node-angular,877720d2d9bb90dc8233706e81ffa03f99fc9dc8,javascript
+"function _typeof(obj) { if (typeof Symbol === ""function"" && typeof Symbol.iterator === ""symbol"") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === ""function"" && obj.constructor === Symbol && obj !== Symbol.prototype ? ""symbol"" : typeof obj; }; } return _typeof(obj); }
+
+function _slicedToArray(arr, i) { return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _nonIterableRest(); }
+
+function _nonIterableRest() { throw new TypeError(""Invalid attempt to destructure non-iterable instance""); }
+
+function _iterableToArrayLimit(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i[""return""] != null) _i[""return""](); } finally { if (_d) throw _e; } } return _arr; }
+
+function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
+
+function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread(); }
+
+function _nonIterableSpread() { throw new TypeError(""Invalid attempt to spread non-iterable instance""); }
+
+function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.prototype.toString.call(iter) === ""[object Arguments]"") return Array.from(iter); }
+
+function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
+
+function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
+
+function _objectSpread(target) { ",1,CVE-2019-17592,CWE-400,adaltas/node-csv-parse,b9d35940c6815cdf1dfd6b21857a1f6d0fd51e4a,javascript
+"function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === ""function"" && obj.constructor === Symbol && obj !== Symbol.prototype ? ""symbol"" : typeof obj; }; } return _typeof(obj); }
+
+function _slicedToArray(arr, i) { return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _nonIterableRest(); }
+
+function _nonIterableRest() { throw new TypeError(""Invalid attempt to destructure non-iterable instance""); }
+
+function _iterableToArrayLimit(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i[""return""] != null) _i[""return""](); } finally { if (_d) throw _e; } } return _arr; }
+
+function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
+
+function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread(); }
+
+function _nonIterableSpread() { throw new TypeError(""Invalid attempt to spread non-iterable instance""); }
+
+function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.prototype.toString.call(iter) === ""[object Arguments]"") return Array.from(iter); }
+
+function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
+
+function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
+
+function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2",1,CVE-2019-17592,CWE-400,adaltas/node-csv-parse,b9d35940c6815cdf1dfd6b21857a1f6d0fd51e4a,javascript
+"function _typeof(obj) { return obj && typeof Symbol === ""function"" && obj.constructor === Symbol && obj !== Symbol.prototype ? ""symbol"" : typeof obj; }; } return _typeof(obj); }
+
+function _slicedToArray(arr, i) { return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _nonIterableRest(); }
+
+function _nonIterableRest() { throw new TypeError(""Invalid attempt to destructure non-iterable instance""); }
+
+function _iterableToArrayLimit(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i[""return""] != null) _i[""return""](); } finally { if (_d) throw _e; } } return _arr; }
+
+function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
+
+function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread(); }
+
+function _nonIterableSpread() { throw new TypeError(""Invalid attempt to spread non-iterable instance""); }
+
+function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.prototype.toString.call(iter) === ""[object Arguments]"") return Array.from(iter); }
+
+function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
+
+function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
+
+function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(source, true).forEach(function (key) { _definePropert",1,CVE-2019-17592,CWE-400,adaltas/node-csv-parse,b9d35940c6815cdf1dfd6b21857a1f6d0fd51e4a,javascript
+"const parse = function(){
+  let data, options, callback
+  for(let i in arguments){
+    const argument = arguments[i]
+    const type = typeof argument
+    if(data === undefined && (typeof argument === 'string' || Buffer.isBuffer(argument))){
+      data = argument
+    }else if(options === undefined && isObject(argument)){
+      options = argument
+    }else if(callback === undefined && type === 'function'){
+      callback = argument
+    }else{
+      throw new Error(`Invalid argument: got ${JSON.stringify(argument)} at index ${i}`)
+    }
+  }
+  const parser = new Parser(options)
+  if(callback){
+    const records = options === undefined || options.objname === undefined ? [] : {}
+    parser.on('readable', function(){
+      let record
+      while(record = this.read()){
+        if(options === undefined || options.objname === undefined){
+          records.push(record)
+        }else{
+          records[record[0]] = record[1]
+        }
+      }
+    })
+    parser.on('error', function(err){
+      callback(err, undefined, parser.info)
+    })
+    parser.on('end', function(){
+      callback(undefined, records, parser.info)
+    })
+  }
+  if(data !== undefined){
+    parser.write(data)
+    parser.end()
+  }
+  return parser",1,CVE-2019-17592,CWE-400,adaltas/node-csv-parse,b9d35940c6815cdf1dfd6b21857a1f6d0fd51e4a,javascript
+"const underscore = function(str){
+  return str.replace(/([A-Z])/g, function(_, match, index){
+    return '_' + match.toLowerCase()
+  })
+}
+
+const isObject = function(obj){
+  return (typeof obj === 'object' && obj !== null && !Array.isArray(obj))
+}
+
+const normalizeColumnsArray = function(columns){
+  // console.log('columns', columns)
+  const normalizedColumns = [];
+
+  for(let i=0; i< columns.length; i++){
+    const column = columns[i]
+    if(column === undefined || column === null || column === false){
+      normalizedColumns[i] = { disabled: true }
+    }else if(typeof column === 'string'){
+      normalizedColumns[i] = { name: column }
+    }else if(isObject(column)){
+      if(typeof column.name !== 'string'){
+        throw new Error(`Invalid Option columns: property ""name"" is required at position ${i} when column is an object literal`)
+      }
+      normalizedColumns[i] = column
+    }else{
+      throw new Error(`Invalid Option columns: expect a string or an object, got ${JSON.stringify(column)} at position ${i}`)
+    }
+  }
+  // console.log(normalizedColumns)
+  return normalizedColumns;
+}",1,CVE-2019-17592,CWE-400,adaltas/node-csv-parse,b9d35940c6815cdf1dfd6b21857a1f6d0fd51e4a,javascript
+"const isObject = function(obj){
+  return (typeof obj === 'object' && obj !== null && !Array.isArray(obj))
+}
+
+const normalizeColumnsArray = function(columns){
+  // console.log('columns', columns)
+  const normalizedColumns = [];
+
+  for(let i=0; i< columns.length; i++){
+    const column = columns[i]
+    if(column === undefined || column === null || column === false){
+      normalizedColumns[i] = { disabled: true }
+    }else if(typeof column === 'string'){
+      normalizedColumns[i] = { name: column }
+    }else if(isObject(column)){
+      if(typeof column.name !== 'string'){
+        throw new Error(`Invalid Option columns: property ""name"" is required at position ${i} when column is an object literal`)
+      }
+      normalizedColumns[i] = column
+    }else{
+      throw new Error(`Invalid Option columns: expect a string or an object, got ${JSON.stringify(column)} at position ${i}`)
+    }
+  }
+  // console.log(normalizedColumns)
+  return normalizedColumns;
+}",1,CVE-2019-17592,CWE-400,adaltas/node-csv-parse,b9d35940c6815cdf1dfd6b21857a1f6d0fd51e4a,javascript
+"extend : function (regexes, extensions) {
+            var mergedRegexes = {};
+            for (var i in regexes) {
+                if (extensions[i] && extensions[i].length % 2 === 0) {
+                    mergedRegexes[i] = extensions[i].concat(regexes[i]);
+                } else {
+                    mergedRegexes[i] = regexes[i];
+                }
+            }
+            return mergedRegexes;
+        },
+        has : function (str1, str2) {
+          if (typeof str1 === ""string"") {
+            return str2.toLowerCase().indexOf(str1.toLowerCase()) !== -1;
+          } else {
+            return false;
+          }
+        },
+        lowerize : function (str) {
+            return str.toLowerCase();
+        },
+        major : function (version) {
+            return typeof(version) === STR_TYPE ? version.replace(/[^\d\.]/g,'').split(""."")[0] : undefined;
+        },
+        trim : function (str) {
+          return str.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, '');
+        }
+    };
+
+
+    ///////////////
+    // Map helper
+    //////////////
+
+
+    var mapper = {
+
+        rgx : function (ua, arrays) {
+
+            var i = 0, j, k, p, q, matches, match;",1,CVE-2020-7733,CWE-400,faisalman/ua-parser-js,233d3bae22a795153a7e6638887ce159c63e557d,javascript
+"has : function (str1, str2) {
+          if (typeof str1 === ""string"") {
+            return str2.toLowerCase().indexOf(str1.toLowerCase()) !== -1;
+          } else {
+            return false;
+          }
+        },
+        lowerize : function (str) {
+            return str.toLowerCase();
+        },
+        major : function (version) {
+            return typeof(version) === STR_TYPE ? version.replace(/[^\d\.]/g,'').split(""."")[0] : undefined;
+        },
+        trim : function (str) {
+          return str.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, '');
+        }
+    };
+
+
+    ///////////////
+    // Map helper
+    //////////////
+
+
+    var mapper = {
+
+        rgx : function (ua, arrays) {
+
+            var i = 0, j, k, p, q, matches, match;
+
+            // loop through all regexes maps
+            while (i < arrays.length && !matches) {
+
+                var regex = arrays[i],       // even sequence (0,2,4,..)
+                    props = arrays[i + 1];   // odd sequence (1,3,5,..)
+                j = k = 0;
+
+                // try matching uastring with regexes
+                while (j < regex.length && !matches) {
+",1,CVE-2020-7733,CWE-400,faisalman/ua-parser-js,233d3bae22a795153a7e6638887ce159c63e557d,javascript
+"lowerize : function (str) {
+            return str.toLowerCase();
+        },
+        major : function (version) {
+            return typeof(version) === STR_TYPE ? version.replace(/[^\d\.]/g,'').split(""."")[0] : undefined;
+        },
+        trim : function (str) {
+          return str.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, '');
+        }
+    };
+
+
+    ///////////////
+    // Map helper
+    //////////////
+
+
+    var mapper = {
+
+        rgx : function (ua, arrays) {
+
+            var i = 0, j, k, p, q, matches, match;
+
+            // loop through all regexes maps
+            while (i < arrays.length && !matches) {
+
+                var regex = arrays[i],       // even sequence (0,2,4,..)
+                    props = arrays[i + 1];   // odd sequence (1,3,5,..)
+                j = k = 0;
+
+                // try matching uastring with regexes
+                while (j < regex.length && !matches) {
+
+                    matches = regex[j++].exec(ua);
+
+                    if (!!matches) {
+                        for (p = 0; p < props.length; p++) {
+                            match = matches[++k];
+                            q = props[p];
+                            // check if given property is actually array",1,CVE-2020-7733,CWE-400,faisalman/ua-parser-js,233d3bae22a795153a7e6638887ce159c63e557d,javascript
+"link: function(prefix) {
+      return '<a href=""' + prefix + '/' + this.url + '"">' + this.text + '</a>';
+    }};
+    shouldCompileTo(string, [hash, helpers], '<a href=""/root/goodbye"">Goodbye</a>');
+  });
+
+  it('helper for raw block gets raw content', function() {
+    var string = '{{{{raw}}}} {{test}} {{{{/raw}}}}';
+    var hash = { test: 'hello' };
+    var helpers = { raw: function(options) {
+        return options.fn();
+    } };
+    shouldCompileTo(string, [hash, helpers], ' {{test}} ',
+                    'raw block helper gets raw content');
+  });
+
+  it('helper for raw block gets parameters', function() {
+    var string = '{{{{raw 1 2 3}}}} {{test}} {{{{/raw}}}}';
+    var hash = { test: 'hello' };
+    var helpers = { raw: function(a, b, c, options) {
+        return options.fn() + a + b + c;
+    } };
+    shouldCompileTo(string, [hash, helpers], ' {{test}} 123',
+                    'raw block helper gets raw content');
+  });
+
+  describe('raw block parsing (with identity helper-function)', function() {
+
+    function runWithIdentityHelper(template, expected) {
+      var helpers = {
+        identity: function(options) {
+          return options.fn();
+        }
+      };
+      shouldCompileTo(template, [{}, helpers], expected);
+    }
+
+    it('helper for nested raw block gets raw content', function() {
+      runWithIdentityHelper('{{{{identity}}}} {{{{b}}}} {{{{/b}}}} {{{{/identity}}}}', ' {{{{b}}}} {{{{/b}}}} ');
+    });",1,CVE-2019-20922,CWE-400,handlebars-lang/handlebars.js,8d5530ee2c3ea9f0aee3fde310b9f36887d00b8b,javascript
+"raw: function(options) {
+        return options.fn();
+    } };
+    shouldCompileTo(string, [hash, helpers], ' {{test}} ',
+                    'raw block helper gets raw content');
+  });
+
+  it('helper for raw block gets parameters', function() {
+    var string = '{{{{raw 1 2 3}}}} {{test}} {{{{/raw}}}}';
+    var hash = { test: 'hello' };
+    var helpers = { raw: function(a, b, c, options) {
+        return options.fn() + a + b + c;
+    } };
+    shouldCompileTo(string, [hash, helpers], ' {{test}} 123',
+                    'raw block helper gets raw content');
+  });
+
+  describe('raw block parsing (with identity helper-function)', function() {
+
+    function runWithIdentityHelper(template, expected) {
+      var helpers = {
+        identity: function(options) {
+          return options.fn();
+        }
+      };
+      shouldCompileTo(template, [{}, helpers], expected);
+    }
+
+    it('helper for nested raw block gets raw content', function() {
+      runWithIdentityHelper('{{{{identity}}}} {{{{b}}}} {{{{/b}}}} {{{{/identity}}}}', ' {{{{b}}}} {{{{/b}}}} ');
+    });
+
+    it('helper for nested raw block works with empty content', function() {
+      runWithIdentityHelper('{{{{identity}}}}{{{{/identity}}}}', '');
+    });
+
+    it('helper for nested raw block works if nested raw blocks are broken', function() {
+      runWithIdentityHelper('{{{{identity}}}} {{{{a}}}} {{{{ {{{{/ }}}} }}}} {{{{/identity}}}}', ' {{{{a}}}} {{{{ {{{{/ }}}} }}}} ');
+    });
+",1,CVE-2019-20922,CWE-400,handlebars-lang/handlebars.js,8d5530ee2c3ea9f0aee3fde310b9f36887d00b8b,javascript
+"raw: function(a, b, c, options) {
+        return options.fn() + a + b + c;
+    } };
+    shouldCompileTo(string, [hash, helpers], ' {{test}} 123',
+                    'raw block helper gets raw content');
+  });
+
+  describe('raw block parsing (with identity helper-function)', function() {
+
+    function runWithIdentityHelper(template, expected) {
+      var helpers = {
+        identity: function(options) {
+          return options.fn();
+        }
+      };
+      shouldCompileTo(template, [{}, helpers], expected);
+    }
+
+    it('helper for nested raw block gets raw content', function() {
+      runWithIdentityHelper('{{{{identity}}}} {{{{b}}}} {{{{/b}}}} {{{{/identity}}}}', ' {{{{b}}}} {{{{/b}}}} ');
+    });
+
+    it('helper for nested raw block works with empty content', function() {
+      runWithIdentityHelper('{{{{identity}}}}{{{{/identity}}}}', '');
+    });
+
+    it('helper for nested raw block works if nested raw blocks are broken', function() {
+      runWithIdentityHelper('{{{{identity}}}} {{{{a}}}} {{{{ {{{{/ }}}} }}}} {{{{/identity}}}}', ' {{{{a}}}} {{{{ {{{{/ }}}} }}}} ');
+    });
+
+    it('helper for nested raw block throw exception when with missing closing braces', function() {
+      var string = '{{{{a}}}} {{{{/a';
+      shouldThrow(function() {
+        Handlebars.compile(string)();
+      });
+    });
+  });
+
+  it('helper block with identical context', function() {
+    var string = '{{#goodbyes}}{{name}}{{/goodbyes}}';",1,CVE-2019-20922,CWE-400,handlebars-lang/handlebars.js,8d5530ee2c3ea9f0aee3fde310b9f36887d00b8b,javascript
+"function shouldMatchTokens(result, tokens) {
+  for (var index = 0; index < result.length; index++) {
+    equals(result[index].name, tokens[index]);
+  }
+}
+function shouldBeToken(result, name, text) {
+  equals(result.name, name);
+  equals(result.text, text);
+}
+
+describe('Tokenizer', function() {
+  if (!Handlebars.Parser) {
+    return;
+  }
+
+  function tokenize(template) {
+    var parser = Handlebars.Parser,
+        lexer = parser.lexer;
+
+    lexer.setInput(template);
+    var out = [],
+        token;
+
+    while ((token = lexer.lex())) {
+      var result = parser.terminals_[token] || token;
+      if (!result || result === 'EOF' || result === 'INVALID') {
+        break;
+      }
+      out.push({name: result, text: lexer.yytext});
+    }
+
+    return out;
+  }
+
+  it('tokenizes a simple mustache as ""OPEN ID CLOSE""', function() {
+    var result = tokenize('{{foo}}');
+    shouldMatchTokens(result, ['OPEN', 'ID', 'CLOSE']);
+    shouldBeToken(result[1], 'ID', 'foo');
+  });
+",1,CVE-2019-20922,CWE-400,handlebars-lang/handlebars.js,8d5530ee2c3ea9f0aee3fde310b9f36887d00b8b,javascript
+"function shouldBeToken(result, name, text) {
+  equals(result.name, name);
+  equals(result.text, text);
+}
+
+describe('Tokenizer', function() {
+  if (!Handlebars.Parser) {
+    return;
+  }
+
+  function tokenize(template) {
+    var parser = Handlebars.Parser,
+        lexer = parser.lexer;
+
+    lexer.setInput(template);
+    var out = [],
+        token;
+
+    while ((token = lexer.lex())) {
+      var result = parser.terminals_[token] || token;
+      if (!result || result === 'EOF' || result === 'INVALID') {
+        break;
+      }
+      out.push({name: result, text: lexer.yytext});
+    }
+
+    return out;
+  }
+
+  it('tokenizes a simple mustache as ""OPEN ID CLOSE""', function() {
+    var result = tokenize('{{foo}}');
+    shouldMatchTokens(result, ['OPEN', 'ID', 'CLOSE']);
+    shouldBeToken(result[1], 'ID', 'foo');
+  });
+
+  it('supports unescaping with &', function() {
+    var result = tokenize('{{&bar}}');
+    shouldMatchTokens(result, ['OPEN', 'ID', 'CLOSE']);
+
+    shouldBeToken(result[0], 'OPEN', '{{&');",1,CVE-2019-20922,CWE-400,handlebars-lang/handlebars.js,8d5530ee2c3ea9f0aee3fde310b9f36887d00b8b,javascript
+"function tokenize(template) {
+    var parser = Handlebars.Parser,
+        lexer = parser.lexer;
+
+    lexer.setInput(template);
+    var out = [],
+        token;
+
+    while ((token = lexer.lex())) {
+      var result = parser.terminals_[token] || token;
+      if (!result || result === 'EOF' || result === 'INVALID') {
+        break;
+      }
+      out.push({name: result, text: lexer.yytext});
+    }
+
+    return out;
+  }
+
+  it('tokenizes a simple mustache as ""OPEN ID CLOSE""', function() {
+    var result = tokenize('{{foo}}');
+    shouldMatchTokens(result, ['OPEN', 'ID', 'CLOSE']);
+    shouldBeToken(result[1], 'ID', 'foo');
+  });
+
+  it('supports unescaping with &', function() {
+    var result = tokenize('{{&bar}}');
+    shouldMatchTokens(result, ['OPEN', 'ID', 'CLOSE']);
+
+    shouldBeToken(result[0], 'OPEN', '{{&');
+    shouldBeToken(result[1], 'ID', 'bar');
+  });
+
+  it('supports unescaping with {{{', function() {
+    var result = tokenize('{{{bar}}}');
+    shouldMatchTokens(result, ['OPEN_UNESCAPED', 'ID', 'CLOSE_UNESCAPED']);
+
+    shouldBeToken(result[1], 'ID', 'bar');
+  });
+",1,CVE-2019-20922,CWE-400,handlebars-lang/handlebars.js,8d5530ee2c3ea9f0aee3fde310b9f36887d00b8b,javascript
+"var keywords = function(){
+    function kw(type) {return {type: type, style: ""keyword""};}
+    var A = kw(""keyword a""), B = kw(""keyword b""), C = kw(""keyword c""), D = kw(""keyword d"");
+    var operator = kw(""operator""), atom = {type: ""atom"", style: ""atom""};
+
+    return {
+      ""if"": kw(""if""), ""while"": A, ""with"": A, ""else"": B, ""do"": B, ""try"": B, ""finally"": B,
+      ""return"": D, ""break"": D, ""continue"": D, ""new"": kw(""new""), ""delete"": C, ""void"": C, ""throw"": C,
+      ""debugger"": kw(""debugger""), ""var"": kw(""var""), ""const"": kw(""var""), ""let"": kw(""var""),
+      ""function"": kw(""function""), ""catch"": kw(""catch""),
+      ""for"": kw(""for""), ""switch"": kw(""switch""), ""case"": kw(""case""), ""default"": kw(""default""),
+      ""in"": operator, ""typeof"": operator, ""instanceof"": operator,
+      ""true"": atom, ""false"": atom, ""null"": atom, ""undefined"": atom, ""NaN"": atom, ""Infinity"": atom,
+      ""this"": kw(""this""), ""class"": kw(""class""), ""super"": kw(""atom""),
+      ""yield"": C, ""export"": kw(""export""), ""import"": kw(""import""), ""extends"": C,
+      ""await"": C
+    };
+  }();
+
+  var isOperatorChar = /[+\-*&%=<>!?|~^@]/;
+  var isJsonldKeyword = /^@(context|id|value|language|type|container|list|set|reverse|index|base|vocab|graph)""/;
+
+  function readRegexp(stream) {
+    var escaped = false, next, inSet = false;
+    while ((next = stream.next()) != null) {
+      if (!escaped) {
+        if (next == ""/"" && !inSet) return;
+        if (next == ""["") inSet = true;
+        else if (inSet && next == ""]"") inSet = false;
+      }
+      escaped = !escaped && next == ""\\"";
+    }
+  }
+
+  // Used as scratch variables to communicate multiple values without
+  // consing up tons of objects.
+  var type, content;
+  function ret(tp, style, cont) {
+    type = tp; content = cont;
+    return style;",1,CVE-2020-7760,CWE-400,codemirror/CodeMirror,55d0333907117c9231ffdf555ae8824705993bbb,javascript
+"function kw(type) {return {type: type, style: ""keyword""};}
+    var A = kw(""keyword a""), B = kw(""keyword b""), C = kw(""keyword c""), D = kw(""keyword d"");
+    var operator = kw(""operator""), atom = {type: ""atom"", style: ""atom""};
+
+    return {
+      ""if"": kw(""if""), ""while"": A, ""with"": A, ""else"": B, ""do"": B, ""try"": B, ""finally"": B,
+      ""return"": D, ""break"": D, ""continue"": D, ""new"": kw(""new""), ""delete"": C, ""void"": C, ""throw"": C,
+      ""debugger"": kw(""debugger""), ""var"": kw(""var""), ""const"": kw(""var""), ""let"": kw(""var""),
+      ""function"": kw(""function""), ""catch"": kw(""catch""),
+      ""for"": kw(""for""), ""switch"": kw(""switch""), ""case"": kw(""case""), ""default"": kw(""default""),
+      ""in"": operator, ""typeof"": operator, ""instanceof"": operator,
+      ""true"": atom, ""false"": atom, ""null"": atom, ""undefined"": atom, ""NaN"": atom, ""Infinity"": atom,
+      ""this"": kw(""this""), ""class"": kw(""class""), ""super"": kw(""atom""),
+      ""yield"": C, ""export"": kw(""export""), ""import"": kw(""import""), ""extends"": C,
+      ""await"": C
+    };
+  }();
+
+  var isOperatorChar = /[+\-*&%=<>!?|~^@]/;
+  var isJsonldKeyword = /^@(context|id|value|language|type|container|list|set|reverse|index|base|vocab|graph)""/;
+
+  function readRegexp(stream) {
+    var escaped = false, next, inSet = false;
+    while ((next = stream.next()) != null) {
+      if (!escaped) {
+        if (next == ""/"" && !inSet) return;
+        if (next == ""["") inSet = true;
+        else if (inSet && next == ""]"") inSet = false;
+      }
+      escaped = !escaped && next == ""\\"";
+    }
+  }
+
+  // Used as scratch variables to communicate multiple values without
+  // consing up tons of objects.
+  var type, content;
+  function ret(tp, style, cont) {
+    type = tp; content = cont;
+    return style;
+  }",1,CVE-2020-7760,CWE-400,codemirror/CodeMirror,55d0333907117c9231ffdf555ae8824705993bbb,javascript
+"function readRegexp(stream) {
+    var escaped = false, next, inSet = false;
+    while ((next = stream.next()) != null) {
+      if (!escaped) {
+        if (next == ""/"" && !inSet) return;
+        if (next == ""["") inSet = true;
+        else if (inSet && next == ""]"") inSet = false;
+      }
+      escaped = !escaped && next == ""\\"";
+    }
+  }
+
+  // Used as scratch variables to communicate multiple values without
+  // consing up tons of objects.
+  var type, content;
+  function ret(tp, style, cont) {
+    type = tp; content = cont;
+    return style;
+  }
+  function tokenBase(stream, state) {
+    var ch = stream.next();
+    if (ch == '""' || ch == ""'"") {
+      state.tokenize = tokenString(ch);
+      return state.tokenize(stream, state);
+    } else if (ch == ""."" && stream.match(/^\d[\d_]*(?:[eE][+\-]?[\d_]+)?/)) {
+      return ret(""number"", ""number"");
+    } else if (ch == ""."" && stream.match("".."")) {
+      return ret(""spread"", ""meta"");
+    } else if (/[\[\]{}\(\),;\:\.]/.test(ch)) {
+      return ret(ch);
+    } else if (ch == ""="" && stream.eat("">"")) {
+      return ret(""=>"", ""operator"");
+    } else if (ch == ""0"" && stream.match(/^(?:x[\dA-Fa-f_]+|o[0-7_]+|b[01_]+)n?/)) {
+      return ret(""number"", ""number"");
+    } else if (/\d/.test(ch)) {
+      stream.match(/^[\d_]*(?:n|(?:\.[\d_]*)?(?:[eE][+\-]?[\d_]+)?)?/);
+      return ret(""number"", ""number"");
+    } else if (ch == ""/"") {
+      if (stream.eat(""*"")) {
+        state.tokenize = tokenComment;",1,CVE-2020-7760,CWE-400,codemirror/CodeMirror,55d0333907117c9231ffdf555ae8824705993bbb,javascript
+"const callback = (err, success) => {
+      if (!success) {
+        sendErrorMessage(req, res, err);
+        return;
+      }
+
+      if (req._query.sid) {
+        debug(""setting new request for existing client"");
+        this.clients[req._query.sid].transport.onRequest(req);
+      } else {
+        this.handshake(req._query.transport, req);
+      }
+    };
+
+    if (this.corsMiddleware) {
+      this.corsMiddleware.call(null, req, res, () => {
+        this.verify(req, false, callback);
+      });
+    } else {
+      this.verify(req, false, callback);
+    }
+  }
+
+  /**
+   * generate a socket id.
+   * Overwrite this method to generate your custom socket id
+   *
+   * @param {Object} request object
+   * @api public
+   */
+  generateId(req) {
+    return base64id.generateId();
+  }
+
+  /**
+   * Handshakes a new client.
+   *
+   * @param {String} transport name
+   * @param {Object} request object
+   * @api private",1,CVE-2020-36048,CWE-400,socketio/engine.io,734f9d1268840722c41219e69eb58318e0b2ac6b,javascript
+"function onUpgradeError() {
+      debug(""websocket error before upgrade"");
+      // socket.close() not needed
+    }
+  }
+
+  /**
+   * Captures upgrade requests for a http.Server.
+   *
+   * @param {http.Server} server
+   * @param {Object} options
+   * @api public
+   */
+  attach(server, options) {
+    const self = this;
+    options = options || {};
+    let path = (options.path || ""/engine.io"").replace(/\/$/, """");
+
+    const destroyUpgradeTimeout = options.destroyUpgradeTimeout || 1000;
+
+    // normalize path
+    path += ""/"";
+
+    function check(req) {
+      return path === req.url.substr(0, path.length);
+    }
+
+    // cache and clean up listeners
+    const listeners = server.listeners(""request"").slice(0);
+    server.removeAllListeners(""request"");
+    server.on(""close"", self.close.bind(self));
+    server.on(""listening"", self.init.bind(self));
+
+    // add request handler
+    server.on(""request"", function(req, res) {
+      if (check(req)) {
+        debug('intercepting request for path ""%s""', path);
+        self.handleRequest(req, res);
+      } else {
+        let i = 0;",1,CVE-2020-36048,CWE-400,socketio/engine.io,734f9d1268840722c41219e69eb58318e0b2ac6b,javascript
+"function check(req) {
+      return path === req.url.substr(0, path.length);
+    }
+
+    // cache and clean up listeners
+    const listeners = server.listeners(""request"").slice(0);
+    server.removeAllListeners(""request"");
+    server.on(""close"", self.close.bind(self));
+    server.on(""listening"", self.init.bind(self));
+
+    // add request handler
+    server.on(""request"", function(req, res) {
+      if (check(req)) {
+        debug('intercepting request for path ""%s""', path);
+        self.handleRequest(req, res);
+      } else {
+        let i = 0;
+        const l = listeners.length;
+        for (; i < l; i++) {
+          listeners[i].call(server, req, res);
+        }
+      }
+    });
+
+    if (~self.opts.transports.indexOf(""websocket"")) {
+      server.on(""upgrade"", function(req, socket, head) {
+        if (check(req)) {
+          self.handleUpgrade(req, socket, head);
+        } else if (false !== options.destroyUpgrade) {
+          // default node behavior is to disconnect when no handlers
+          // but by adding a handler, we prevent that
+          // and if no eio thing handles the upgrade
+          // then the socket needs to die!
+          setTimeout(function() {
+            if (socket.writable && socket.bytesWritten <= 0) {
+              return socket.end();
+            }
+          }, destroyUpgradeTimeout);
+        }
+      });",1,CVE-2020-36048,CWE-400,socketio/engine.io,734f9d1268840722c41219e69eb58318e0b2ac6b,javascript
+"validate: function( options ) {
+
+		// If nothing is selected, return nothing; can't chain anyway
+		if ( !this.length ) {
+			if ( options && options.debug && window.console ) {
+				console.warn( ""Nothing selected, can't validate, returning nothing."" );
+			}
+			return;
+		}
+
+		// Check if a validator for this form was already created
+		var validator = $.data( this[ 0 ], ""validator"" );
+		if ( validator ) {
+			return validator;
+		}
+
+		// Add novalidate tag if HTML5.
+		this.attr( ""novalidate"", ""novalidate"" );
+
+		validator = new $.validator( options, this[ 0 ] );
+		$.data( this[ 0 ], ""validator"", validator );
+
+		if ( validator.settings.onsubmit ) {
+
+			this.on( ""click.validate"", "":submit"", function( event ) {
+
+				// Track the used submit button to properly handle scripted
+				// submits later.
+				validator.submitButton = event.currentTarget;
+
+				// Allow suppressing validation by adding a cancel class to the submit button
+				if ( $( this ).hasClass( ""cancel"" ) ) {
+					validator.cancelSubmit = true;
+				}
+
+				// Allow suppressing validation by adding the html5 formnovalidate attribute to the submit button
+				if ( $( this ).attr( ""formnovalidate"" ) !== undefined ) {
+					validator.cancelSubmit = true;
+				}
+			} );",1,CVE-2021-21252,CWE-400,jquery-validation/jquery-validation,5d8f29eef363d043a8fec4eb86d42cadb5fa5f7d,javascript
+"function handle() {
+					var hidden, result;
+
+					// Insert a hidden input as a replacement for the missing submit button
+					// The hidden input is inserted in two cases:
+					//   - A user defined a `submitHandler`
+					//   - There was a pending request due to `remote` method and `stopRequest()`
+					//     was called to submit the form in case it's valid
+					if ( validator.submitButton && ( validator.settings.submitHandler || validator.formSubmitted ) ) {
+						hidden = $( ""<input type='hidden'/>"" )
+							.attr( ""name"", validator.submitButton.name )
+							.val( $( validator.submitButton ).val() )
+							.appendTo( validator.currentForm );
+					}
+
+					if ( validator.settings.submitHandler && !validator.settings.debug ) {
+						result = validator.settings.submitHandler.call( validator, validator.currentForm, event );
+						if ( hidden ) {
+
+							// And clean up afterwards; thanks to no-block-scope, hidden can be referenced
+							hidden.remove();
+						}
+						if ( result !== undefined ) {
+							return result;
+						}
+						return false;
+					}
+					return true;
+				}
+
+				// Prevent submit for invalid forms or custom submit handlers
+				if ( validator.cancelSubmit ) {
+					validator.cancelSubmit = false;
+					return handle();
+				}
+				if ( validator.form() ) {
+					if ( validator.pendingRequest ) {
+						validator.formSubmitted = true;
+						return false;
+					}",1,CVE-2021-21252,CWE-400,jquery-validation/jquery-validation,5d8f29eef363d043a8fec4eb86d42cadb5fa5f7d,javascript
+"valid: function() {
+		var valid, validator, errorList;
+
+		if ( $( this[ 0 ] ).is( ""form"" ) ) {
+			valid = this.validate().form();
+		} else {
+			errorList = [];
+			valid = true;
+			validator = $( this[ 0 ].form ).validate();
+			this.each( function() {
+				valid = validator.element( this ) && valid;
+				if ( !valid ) {
+					errorList = errorList.concat( validator.errorList );
+				}
+			} );
+			validator.errorList = errorList;
+		}
+		return valid;
+	},
+
+	// https://jqueryvalidation.org/rules/
+	rules: function( command, argument ) {
+		var element = this[ 0 ],
+			isContentEditable = typeof this.attr( ""contenteditable"" ) !== ""undefined"" && this.attr( ""contenteditable"" ) !== ""false"",
+			settings, staticRules, existingRules, data, param, filtered;
+
+		// If nothing is selected, return empty object; can't chain anyway
+		if ( element == null ) {
+			return;
+		}
+
+		if ( !element.form && isContentEditable ) {
+			element.form = this.closest( ""form"" )[ 0 ];
+			element.name = this.attr( ""name"" );
+		}
+
+		if ( element.form == null ) {
+			return;
+		}
+",1,CVE-2021-21252,CWE-400,jquery-validation/jquery-validation,5d8f29eef363d043a8fec4eb86d42cadb5fa5f7d,javascript
+"function createCommonjsModule(fn) {
+  var module = { exports: {} };
+	return fn(module, module.exports), module.exports;
+}
+
+var defaults = createCommonjsModule(function (module) {
+function getDefaults() {
+  return {
+    baseUrl: null,
+    breaks: false,
+    gfm: true,
+    headerIds: true,
+    headerPrefix: '',
+    highlight: null,
+    langPrefix: 'language-',
+    mangle: true,
+    pedantic: false,
+    renderer: null,
+    sanitize: false,
+    sanitizer: null,
+    silent: false,
+    smartLists: false,
+    smartypants: false,
+    tokenizer: null,
+    walkTokens: null,
+    xhtml: false
+  };
+}
+
+function changeDefaults(newDefaults) {
+  module.exports.defaults = newDefaults;
+}
+
+module.exports = {
+  defaults: getDefaults(),
+  getDefaults,
+  changeDefaults
+};
+});
+",1,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function getDefaults() {
+  return {
+    baseUrl: null,
+    breaks: false,
+    gfm: true,
+    headerIds: true,
+    headerPrefix: '',
+    highlight: null,
+    langPrefix: 'language-',
+    mangle: true,
+    pedantic: false,
+    renderer: null,
+    sanitize: false,
+    sanitizer: null,
+    silent: false,
+    smartLists: false,
+    smartypants: false,
+    tokenizer: null,
+    walkTokens: null,
+    xhtml: false
+  };
+}
+
+function changeDefaults(newDefaults) {
+  module.exports.defaults = newDefaults;
+}
+
+module.exports = {
+  defaults: getDefaults(),
+  getDefaults,
+  changeDefaults
+};
+});
+
+/**
+ * Helpers
+ */
+const escapeTest = /[&<>""']/;
+const escapeReplace = /[&<>""']/g;
+const escapeTestNoEncode = /[<>""']|&(?!#?\w+;)/;",1,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function changeDefaults(newDefaults) {
+  module.exports.defaults = newDefaults;
+}
+
+module.exports = {
+  defaults: getDefaults(),
+  getDefaults,
+  changeDefaults
+};
+});
+
+/**
+ * Helpers
+ */
+const escapeTest = /[&<>""']/;
+const escapeReplace = /[&<>""']/g;
+const escapeTestNoEncode = /[<>""']|&(?!#?\w+;)/;
+const escapeReplaceNoEncode = /[<>""']|&(?!#?\w+;)/g;
+const escapeReplacements = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '""': '&quot;',
+  ""'"": '&#39;'
+};
+const getEscapeReplacement = (ch) => escapeReplacements[ch];
+function escape(html, encode) {
+  if (encode) {
+    if (escapeTest.test(html)) {
+      return html.replace(escapeReplace, getEscapeReplacement);
+    }
+  } else {
+    if (escapeTestNoEncode.test(html)) {
+      return html.replace(escapeReplaceNoEncode, getEscapeReplacement);
+    }
+  }
+
+  return html;
+}
+",1,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function _defineProperties(target, props) {
+    for (var i = 0; i < props.length; i++) {
+      var descriptor = props[i];
+      descriptor.enumerable = descriptor.enumerable || false;
+      descriptor.configurable = true;
+      if (""value"" in descriptor) descriptor.writable = true;
+      Object.defineProperty(target, descriptor.key, descriptor);
+    }
+  }
+
+  function _createClass(Constructor, protoProps, staticProps) {
+    if (protoProps) _defineProperties(Constructor.prototype, protoProps);
+    if (staticProps) _defineProperties(Constructor, staticProps);
+    return Constructor;
+  }
+
+  function _unsupportedIterableToArray(o, minLen) {
+    if (!o) return;
+    if (typeof o === ""string"") return _arrayLikeToArray(o, minLen);
+    var n = Object.prototype.toString.call(o).slice(8, -1);
+    if (n === ""Object"" && o.constructor) n = o.constructor.name;
+    if (n === ""Map"" || n === ""Set"") return Array.from(o);
+    if (n === ""Arguments"" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen);
+  }
+
+  function _arrayLikeToArray(arr, len) {
+    if (len == null || len > arr.length) len = arr.length;
+
+    for (var i = 0, arr2 = new Array(len); i < len; i++) arr2[i] = arr[i];
+
+    return arr2;
+  }
+
+  function _createForOfIteratorHelperLoose(o, allowArrayLike) {
+    var it;
+
+    if (typeof Symbol === ""undefined"" || o[Symbol.iterator] == null) {
+      if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === ""number"") {
+        if (it) o = it;
+        var i = 0;",1,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function _createClass(Constructor, protoProps, staticProps) {
+    if (protoProps) _defineProperties(Constructor.prototype, protoProps);
+    if (staticProps) _defineProperties(Constructor, staticProps);
+    return Constructor;
+  }
+
+  function _unsupportedIterableToArray(o, minLen) {
+    if (!o) return;
+    if (typeof o === ""string"") return _arrayLikeToArray(o, minLen);
+    var n = Object.prototype.toString.call(o).slice(8, -1);
+    if (n === ""Object"" && o.constructor) n = o.constructor.name;
+    if (n === ""Map"" || n === ""Set"") return Array.from(o);
+    if (n === ""Arguments"" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen);
+  }
+
+  function _arrayLikeToArray(arr, len) {
+    if (len == null || len > arr.length) len = arr.length;
+
+    for (var i = 0, arr2 = new Array(len); i < len; i++) arr2[i] = arr[i];
+
+    return arr2;
+  }
+
+  function _createForOfIteratorHelperLoose(o, allowArrayLike) {
+    var it;
+
+    if (typeof Symbol === ""undefined"" || o[Symbol.iterator] == null) {
+      if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === ""number"") {
+        if (it) o = it;
+        var i = 0;
+        return function () {
+          if (i >= o.length) return {
+            done: true
+          };
+          return {
+            done: false,
+            value: o[i++]
+          };
+        };
+      }",1,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function _unsupportedIterableToArray(o, minLen) {
+    if (!o) return;
+    if (typeof o === ""string"") return _arrayLikeToArray(o, minLen);
+    var n = Object.prototype.toString.call(o).slice(8, -1);
+    if (n === ""Object"" && o.constructor) n = o.constructor.name;
+    if (n === ""Map"" || n === ""Set"") return Array.from(o);
+    if (n === ""Arguments"" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen);
+  }
+
+  function _arrayLikeToArray(arr, len) {
+    if (len == null || len > arr.length) len = arr.length;
+
+    for (var i = 0, arr2 = new Array(len); i < len; i++) arr2[i] = arr[i];
+
+    return arr2;
+  }
+
+  function _createForOfIteratorHelperLoose(o, allowArrayLike) {
+    var it;
+
+    if (typeof Symbol === ""undefined"" || o[Symbol.iterator] == null) {
+      if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === ""number"") {
+        if (it) o = it;
+        var i = 0;
+        return function () {
+          if (i >= o.length) return {
+            done: true
+          };
+          return {
+            done: false,
+            value: o[i++]
+          };
+        };
+      }
+
+      throw new TypeError(""Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."");
+    }
+
+    it = o[Symbol.iterator]();
+    return it.next.bind(it);",1,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function i(e,t){for(var n=0;n<t.length;n++){var r=t[n];r.enumerable=r.enumerable||!1,r.configurable=!0,""value""in r&&(r.writable=!0),Object.defineProperty(e,r.key,r)}}function s(e,t){(null==t||t>e.length)&&(t=e.length);for(var n=0,r=new Array(t);n<t;n++)r[n]=e[n];return r}function p(e,t){var n;if(""undefined""!=typeof Symbol&&null!=e[Symbol.iterator])return(n=e[Symbol.iterator]()).next.bind(n);if(Array.isArray(e)||(n=function(e,t){if(e){if(""string""==typeof e)return s(e,t);var n=Object.prototype.toString.call(e).slice(8,-1);return""Map""===(n=""Object""===n&&e.constructor?e.constructor.name:n)||""Set""===n?Array.from(e):""Arguments""===n||/^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)?s(e,t):void 0}}(e))||t&&e&&""number""==typeof e.length){n&&(e=n);var r=0;return function(){return r>=e.length?{done:!0}:{done:!1,value:e[r++]}}}throw new TypeError(""Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."")}function n(e){return c[e]}var e,t=(function(t){function e(){return{baseUrl:null,breaks:!1,gfm:!0,headerIds:!0,headerPrefix:"""",highlight:null,langPrefix:""language-"",mangle:!0,pedantic:!1,renderer:null,sanitize:!1,sanitizer:null,silent:!1,smartLists:!1,smartypants:!1,tokenizer:null,walkTokens:null,xhtml:!1}}t.exports={defaults:e(),getDefaults:e,changeDefaults:function(e){t.exports.defaults=e}}}(e={exports:{}}),e.exports),r=/[&<>""']/,l=/[&<>""']/g,a=/[<>""']|&(?!#?\w+;)/,o=/[<>""']|&(?!#?\w+;)/g,c={""&"":""&amp;"",""<"":""&lt;"","">"":""&gt;"",'""':""&quot;"",""'"":""&#39;""};var u=/&(#(?:\d+)|(?:#x[0-9A-Fa-f]+)|(?:\w+));?/gi;function h(e){return e.replace(u,function(e,t){return""colon""===(t=t.toLowerCase())?"":"":""#""===t.charAt(0)?""x""===t.charAt(1)?String.fromCharCode(parseInt(t.substring(2),16)):String.fromCharCode(+t.substring(1)):""""})}var g=/(^|[^\[])\^/g;var f=/[^\w:]/g,d=/^$|^[a-z][a-z0-9+.-]*:|^[?#]/i;var k={},b=/^[^:]+:\/*[^/]*$/,m=/^([^:]+:)[\s\S]*$/,x=/^([^:]+:\/*[^/]*)[\s\S]*$/;function w(e,t){k["" ""+e]||(b.test(e)?k[",1,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function s(e,t){(null==t||t>e.length)&&(t=e.length);for(var n=0,r=new Array(t);n<t;n++)r[n]=e[n];return r}function p(e,t){var n;if(""undefined""!=typeof Symbol&&null!=e[Symbol.iterator])return(n=e[Symbol.iterator]()).next.bind(n);if(Array.isArray(e)||(n=function(e,t){if(e){if(""string""==typeof e)return s(e,t);var n=Object.prototype.toString.call(e).slice(8,-1);return""Map""===(n=""Object""===n&&e.constructor?e.constructor.name:n)||""Set""===n?Array.from(e):""Arguments""===n||/^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)?s(e,t):void 0}}(e))||t&&e&&""number""==typeof e.length){n&&(e=n);var r=0;return function(){return r>=e.length?{done:!0}:{done:!1,value:e[r++]}}}throw new TypeError(""Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."")}function n(e){return c[e]}var e,t=(function(t){function e(){return{baseUrl:null,breaks:!1,gfm:!0,headerIds:!0,headerPrefix:"""",highlight:null,langPrefix:""language-"",mangle:!0,pedantic:!1,renderer:null,sanitize:!1,sanitizer:null,silent:!1,smartLists:!1,smartypants:!1,tokenizer:null,walkTokens:null,xhtml:!1}}t.exports={defaults:e(),getDefaults:e,changeDefaults:function(e){t.exports.defaults=e}}}(e={exports:{}}),e.exports),r=/[&<>""']/,l=/[&<>""']/g,a=/[<>""']|&(?!#?\w+;)/,o=/[<>""']|&(?!#?\w+;)/g,c={""&"":""&amp;"",""<"":""&lt;"","">"":""&gt;"",'""':""&quot;"",""'"":""&#39;""};var u=/&(#(?:\d+)|(?:#x[0-9A-Fa-f]+)|(?:\w+));?/gi;function h(e){return e.replace(u,function(e,t){return""colon""===(t=t.toLowerCase())?"":"":""#""===t.charAt(0)?""x""===t.charAt(1)?String.fromCharCode(parseInt(t.substring(2),16)):String.fromCharCode(+t.substring(1)):""""})}var g=/(^|[^\[])\^/g;var f=/[^\w:]/g,d=/^$|^[a-z][a-z0-9+.-]*:|^[?#]/i;var k={},b=/^[^:]+:\/*[^/]*$/,m=/^([^:]+:)[\s\S]*$/,x=/^([^:]+:\/*[^/]*)[\s\S]*$/;function w(e,t){k["" ""+e]||(b.test(e)?k["" ""+e]=e+""/"":k["" ""+e]=v(e,""/"",!0));var n=-1===(e=k["" ""+e]).indexOf("":"");return""//""===t.substring(0,2)?n?t:e.replace(m,""$1"")+t:""/""===t.charAt(0)?n?t:e.replace(x,""$1"")+",1,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function p(e,t){var n;if(""undefined""!=typeof Symbol&&null!=e[Symbol.iterator])return(n=e[Symbol.iterator]()).next.bind(n);if(Array.isArray(e)||(n=function(e,t){if(e){if(""string""==typeof e)return s(e,t);var n=Object.prototype.toString.call(e).slice(8,-1);return""Map""===(n=""Object""===n&&e.constructor?e.constructor.name:n)||""Set""===n?Array.from(e):""Arguments""===n||/^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)?s(e,t):void 0}}(e))||t&&e&&""number""==typeof e.length){n&&(e=n);var r=0;return function(){return r>=e.length?{done:!0}:{done:!1,value:e[r++]}}}throw new TypeError(""Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."")}function n(e){return c[e]}var e,t=(function(t){function e(){return{baseUrl:null,breaks:!1,gfm:!0,headerIds:!0,headerPrefix:"""",highlight:null,langPrefix:""language-"",mangle:!0,pedantic:!1,renderer:null,sanitize:!1,sanitizer:null,silent:!1,smartLists:!1,smartypants:!1,tokenizer:null,walkTokens:null,xhtml:!1}}t.exports={defaults:e(),getDefaults:e,changeDefaults:function(e){t.exports.defaults=e}}}(e={exports:{}}),e.exports),r=/[&<>""']/,l=/[&<>""']/g,a=/[<>""']|&(?!#?\w+;)/,o=/[<>""']|&(?!#?\w+;)/g,c={""&"":""&amp;"",""<"":""&lt;"","">"":""&gt;"",'""':""&quot;"",""'"":""&#39;""};var u=/&(#(?:\d+)|(?:#x[0-9A-Fa-f]+)|(?:\w+));?/gi;function h(e){return e.replace(u,function(e,t){return""colon""===(t=t.toLowerCase())?"":"":""#""===t.charAt(0)?""x""===t.charAt(1)?String.fromCharCode(parseInt(t.substring(2),16)):String.fromCharCode(+t.substring(1)):""""})}var g=/(^|[^\[])\^/g;var f=/[^\w:]/g,d=/^$|^[a-z][a-z0-9+.-]*:|^[?#]/i;var k={},b=/^[^:]+:\/*[^/]*$/,m=/^([^:]+:)[\s\S]*$/,x=/^([^:]+:\/*[^/]*)[\s\S]*$/;function w(e,t){k["" ""+e]||(b.test(e)?k["" ""+e]=e+""/"":k["" ""+e]=v(e,""/"",!0));var n=-1===(e=k["" ""+e]).indexOf("":"");return""//""===t.substring(0,2)?n?t:e.replace(m,""$1"")+t:""/""===t.charAt(0)?n?t:e.replace(x,""$1"")+t:e+t}function v(e,t,n){var r=e.length;if(0===r)return"""";for(var i=0;i<r;){var s=e.charAt(r-i-1);if(s!==t|",1,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function smartypants(text) {
+  return text
+    // em-dashes
+    .replace(/---/g, '\u2014')
+    // en-dashes
+    .replace(/--/g, '\u2013')
+    // opening singles
+    .replace(/(^|[-\u2014/(\[{""\s])'/g, '$1\u2018')
+    // closing singles & apostrophes
+    .replace(/'/g, '\u2019')
+    // opening doubles
+    .replace(/(^|[-\u2014/(\[{\u2018\s])""/g, '$1\u201c')
+    // closing doubles
+    .replace(/""/g, '\u201d')
+    // ellipses
+    .replace(/\.{3}/g, '\u2026');
+}
+
+/**
+ * mangle email addresses
+ */
+function mangle(text) {
+  let out = '',
+    i,
+    ch;
+
+  const l = text.length;
+  for (i = 0; i < l; i++) {
+    ch = text.charCodeAt(i);
+    if (Math.random() > 0.5) {
+      ch = 'x' + ch.toString(16);
+    }
+    out += '&#' + ch + ';';
+  }
+
+  return out;
+}
+
+/**
+ * Block Lexer",1,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function mangle(text) {
+  let out = '',
+    i,
+    ch;
+
+  const l = text.length;
+  for (i = 0; i < l; i++) {
+    ch = text.charCodeAt(i);
+    if (Math.random() > 0.5) {
+      ch = 'x' + ch.toString(16);
+    }
+    out += '&#' + ch + ';';
+  }
+
+  return out;
+}
+
+/**
+ * Block Lexer
+ */
+module.exports = class Lexer {
+  constructor(options) {
+    this.tokens = [];
+    this.tokens.links = Object.create(null);
+    this.options = options || defaults;
+    this.options.tokenizer = this.options.tokenizer || new Tokenizer();
+    this.tokenizer = this.options.tokenizer;
+    this.tokenizer.options = this.options;
+
+    const rules = {
+      block: block.normal,
+      inline: inline.normal
+    };
+
+    if (this.options.pedantic) {
+      rules.block = block.pedantic;
+      rules.inline = inline.pedantic;
+    } else if (this.options.gfm) {
+      rules.block = block.gfm;
+      if (this.options.breaks) {",1,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function outputLink(cap, link, raw) {
+  const href = link.href;
+  const title = link.title ? escape(link.title) : null;
+  const text = cap[1].replace(/\\([\[\]])/g, '$1');
+
+  if (cap[0].charAt(0) !== '!') {
+    return {
+      type: 'link',
+      raw,
+      href,
+      title,
+      text
+    };
+  } else {
+    return {
+      type: 'image',
+      raw,
+      href,
+      title,
+      text: escape(text)
+    };
+  }
+}
+
+function indentCodeCompensation(raw, text) {
+  const matchIndentToCode = raw.match(/^(\s+)(?:```)/);
+
+  if (matchIndentToCode === null) {
+    return text;
+  }
+
+  const indentToCode = matchIndentToCode[1];
+
+  return text
+    .split('\n')
+    .map(node => {
+      const matchIndentInNode = node.match(/^\s+/);
+      if (matchIndentInNode === null) {
+        return node;
+      }",1,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function indentCodeCompensation(raw, text) {
+  const matchIndentToCode = raw.match(/^(\s+)(?:```)/);
+
+  if (matchIndentToCode === null) {
+    return text;
+  }
+
+  const indentToCode = matchIndentToCode[1];
+
+  return text
+    .split('\n')
+    .map(node => {
+      const matchIndentInNode = node.match(/^\s+/);
+      if (matchIndentInNode === null) {
+        return node;
+      }
+
+      const [indentInNode] = matchIndentInNode;
+
+      if (indentInNode.length >= indentToCode.length) {
+        return node.slice(indentToCode.length);
+      }
+
+      return node;
+    })
+    .join('\n');
+}
+
+/**
+ * Tokenizer
+ */
+module.exports = class Tokenizer {
+  constructor(options) {
+    this.options = options || defaults;
+  }
+
+  space(src) {
+    const cap = this.rules.block.newline.exec(src);
+    if (cap) {
+      if (cap[0].length > 1) {",1,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function addListeners(server, map) {
+  for (const event of Object.keys(map)) server.on(event, map[event]);
+
+  return function removeListeners() {
+    for (const event of Object.keys(map)) {
+      server.removeListener(event, map[event]);
+    }
+  };
+}
+
+/**
+ * Emit a `'close'` event on an `EventEmitter`.
+ *
+ * @param {EventEmitter} server The event emitter
+ * @private
+ */
+function emitClose(server) {
+  server.emit('close');
+}
+
+/**
+ * Handle premature socket errors.
+ *
+ * @private
+ */
+function socketOnError() {
+  this.destroy();
+}
+
+/**
+ * Close the connection when preconditions are not fulfilled.
+ *
+ * @param {net.Socket} socket The socket of the upgrade request
+ * @param {Number} code The HTTP response status code
+ * @param {String} [message] The HTTP response body
+ * @param {Object} [headers] Additional HTTP response headers
+ * @private
+ */
+function abortHandshake(socket, code, message, headers) {
+  if (socket.writable) {",1,CVE-2021-32640,CWE-400,websockets/ws,00c425ec77993773d823f018f64a5c44e17023ff,javascript
+"function removeListeners() {
+    for (const event of Object.keys(map)) {
+      server.removeListener(event, map[event]);
+    }
+  };
+}
+
+/**
+ * Emit a `'close'` event on an `EventEmitter`.
+ *
+ * @param {EventEmitter} server The event emitter
+ * @private
+ */
+function emitClose(server) {
+  server.emit('close');
+}
+
+/**
+ * Handle premature socket errors.
+ *
+ * @private
+ */
+function socketOnError() {
+  this.destroy();
+}
+
+/**
+ * Close the connection when preconditions are not fulfilled.
+ *
+ * @param {net.Socket} socket The socket of the upgrade request
+ * @param {Number} code The HTTP response status code
+ * @param {String} [message] The HTTP response body
+ * @param {Object} [headers] Additional HTTP response headers
+ * @private
+ */
+function abortHandshake(socket, code, message, headers) {
+  if (socket.writable) {
+    message = message || STATUS_CODES[code];
+    headers = {
+      Connection: 'close',",1,CVE-2021-32640,CWE-400,websockets/ws,00c425ec77993773d823f018f64a5c44e17023ff,javascript
+"function emitClose(server) {
+  server.emit('close');
+}
+
+/**
+ * Handle premature socket errors.
+ *
+ * @private
+ */
+function socketOnError() {
+  this.destroy();
+}
+
+/**
+ * Close the connection when preconditions are not fulfilled.
+ *
+ * @param {net.Socket} socket The socket of the upgrade request
+ * @param {Number} code The HTTP response status code
+ * @param {String} [message] The HTTP response body
+ * @param {Object} [headers] Additional HTTP response headers
+ * @private
+ */
+function abortHandshake(socket, code, message, headers) {
+  if (socket.writable) {
+    message = message || STATUS_CODES[code];
+    headers = {
+      Connection: 'close',
+      'Content-Type': 'text/html',
+      'Content-Length': Buffer.byteLength(message),
+      ...headers
+    };
+
+    socket.write(
+      `HTTP/1.1 ${code} ${STATUS_CODES[code]}\r\n` +
+        Object.keys(headers)
+          .map((h) => `${h}: ${headers[h]}`)
+          .join('\r\n') +
+        '\r\n\r\n' +
+        message
+    );",1,CVE-2021-32640,CWE-400,websockets/ws,00c425ec77993773d823f018f64a5c44e17023ff,javascript
+"function parse (jsonString) {
+  try {
+    return JSON.parse(jsonString)
+  } catch (err) {
+    // try to throw a more detailed error message using validate
+    validate(jsonString)
+
+    // rethrow the original error
+    throw err
+  }
+}
+
+/**
+ * Try to fix the JSON string. If not successful, return the original string
+ * @param {string} jsonString
+ */
+export function tryJsonRepair (jsonString) {
+  try {
+    return jsonrepair(jsonString)
+  } catch (err) {
+    // repair was not successful, return original text
+    return jsonString
+  }
+}
+
+/**
+ * Escape unicode characters.
+ * For example input '\u2661' (length 1) will output '\\u2661' (length 5).
+ * @param {string} text
+ * @return {string}
+ */
+export function escapeUnicodeChars (
+  // see https://www.wikiwand.com/en/UTF-16
+  text
+) {
+  return (
+    // note: we leave surrogate pairs as two individual chars,
+    // as JSON doesn't interpret them as a single unicode char.
+    text.replace(
+      /[\u007F-\uFFFF]/g,",1,CVE-2021-3822,CWE-400,josdejong/jsoneditor,092e386cf49f2a1450625617da8e0137ed067c3e,javascript
+"function tryJsonRepair (jsonString) {
+  try {
+    return jsonrepair(jsonString)
+  } catch (err) {
+    // repair was not successful, return original text
+    return jsonString
+  }
+}
+
+/**
+ * Escape unicode characters.
+ * For example input '\u2661' (length 1) will output '\\u2661' (length 5).
+ * @param {string} text
+ * @return {string}
+ */
+export function escapeUnicodeChars (
+  // see https://www.wikiwand.com/en/UTF-16
+  text
+) {
+  return (
+    // note: we leave surrogate pairs as two individual chars,
+    // as JSON doesn't interpret them as a single unicode char.
+    text.replace(
+      /[\u007F-\uFFFF]/g,
+      c => '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4)
+    )
+  )
+}
+
+/**
+ * Validate a string containing a JSON object
+ * This method uses JSONLint to validate the String. If JSONLint is not
+ * available, the built-in JSON parser of the browser is used.
+ * @param {String} jsonString   String with an (invalid) JSON object
+ * @throws Error
+ */
+export function validate (jsonString) {
+  if (typeof (jsonlint) !== 'undefined') {
+    jsonlint.parse(jsonString)
+  } else {",1,CVE-2021-3822,CWE-400,josdejong/jsoneditor,092e386cf49f2a1450625617da8e0137ed067c3e,javascript
+"function escapeUnicodeChars (
+  // see https://www.wikiwand.com/en/UTF-16
+  text
+) {
+  return (
+    // note: we leave surrogate pairs as two individual chars,
+    // as JSON doesn't interpret them as a single unicode char.
+    text.replace(
+      /[\u007F-\uFFFF]/g,
+      c => '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4)
+    )
+  )
+}
+
+/**
+ * Validate a string containing a JSON object
+ * This method uses JSONLint to validate the String. If JSONLint is not
+ * available, the built-in JSON parser of the browser is used.
+ * @param {String} jsonString   String with an (invalid) JSON object
+ * @throws Error
+ */
+export function validate (jsonString) {
+  if (typeof (jsonlint) !== 'undefined') {
+    jsonlint.parse(jsonString)
+  } else {
+    JSON.parse(jsonString)
+  }
+}
+
+/**
+ * Extend object a with the properties of object b
+ * @param {Object} a
+ * @param {Object} b
+ * @return {Object} a
+ */
+export function extend (a, b) {
+  for (const prop in b) {
+    if (hasOwnProperty(b, prop)) {
+      a[prop] = b[prop]
+    }",1,CVE-2021-3822,CWE-400,josdejong/jsoneditor,092e386cf49f2a1450625617da8e0137ed067c3e,javascript
+"function _adjust_publishing_interval(publishingInterval?: number): number {
+    publishingInterval =
+        publishingInterval === undefined || Number.isNaN(publishingInterval)
+            ? Subscription.defaultPublishingInterval
+            : publishingInterval;
+    publishingInterval = Math.max(publishingInterval, Subscription.minimumPublishingInterval);
+    publishingInterval = Math.min(publishingInterval, Subscription.maximumPublishingInterval);
+    return publishingInterval;
+}
+
+const minimumMaxKeepAliveCount = 2;
+const maximumMaxKeepAliveCount = 12000;
+
+function _adjust_maxKeepAliveCount(maxKeepAliveCount?: number /*,publishingInterval*/): number {
+    maxKeepAliveCount = maxKeepAliveCount || minimumMaxKeepAliveCount;
+    maxKeepAliveCount = Math.max(maxKeepAliveCount, minimumMaxKeepAliveCount);
+    maxKeepAliveCount = Math.min(maxKeepAliveCount, maximumMaxKeepAliveCount);
+    return maxKeepAliveCount;
+}
+
+function _adjust_lifeTimeCount(lifeTimeCount: number, maxKeepAliveCount: number, publishingInterval: number): number {
+    lifeTimeCount = lifeTimeCount || 1;
+
+    // let's make sure that lifeTimeCount is at least three time maxKeepAliveCount
+    // Note : the specs say ( part 3  - CreateSubscriptionParameter )
+    //        ""The lifetime count shall be a minimum of three times the keep keep-alive count.""
+    lifeTimeCount = Math.max(lifeTimeCount, maxKeepAliveCount * 3);
+
+    const minTicks = Math.ceil(Subscription.minimumLifetimeDuration / publishingInterval);
+    const maxTicks = Math.floor(Subscription.maximumLifetimeDuration / publishingInterval);
+
+    lifeTimeCount = Math.max(minTicks, lifeTimeCount);
+    lifeTimeCount = Math.min(maxTicks, lifeTimeCount);
+    return lifeTimeCount;
+}
+
+function _adjust_publishingEnable(publishingEnabled?: boolean | null): boolean {
+    return publishingEnabled === null || publishingEnabled === undefined ? true : !!publishingEnabled;
+}
+",1,CVE-2022-24375,CWE-400,node-opcua/node-opcua,3fd46ec156e7718a506be41f3916310b6bdd0407,javascript
+"function _adjust_maxKeepAliveCount(maxKeepAliveCount?: number /*,publishingInterval*/): number {
+    maxKeepAliveCount = maxKeepAliveCount || minimumMaxKeepAliveCount;
+    maxKeepAliveCount = Math.max(maxKeepAliveCount, minimumMaxKeepAliveCount);
+    maxKeepAliveCount = Math.min(maxKeepAliveCount, maximumMaxKeepAliveCount);
+    return maxKeepAliveCount;
+}
+
+function _adjust_lifeTimeCount(lifeTimeCount: number, maxKeepAliveCount: number, publishingInterval: number): number {
+    lifeTimeCount = lifeTimeCount || 1;
+
+    // let's make sure that lifeTimeCount is at least three time maxKeepAliveCount
+    // Note : the specs say ( part 3  - CreateSubscriptionParameter )
+    //        ""The lifetime count shall be a minimum of three times the keep keep-alive count.""
+    lifeTimeCount = Math.max(lifeTimeCount, maxKeepAliveCount * 3);
+
+    const minTicks = Math.ceil(Subscription.minimumLifetimeDuration / publishingInterval);
+    const maxTicks = Math.floor(Subscription.maximumLifetimeDuration / publishingInterval);
+
+    lifeTimeCount = Math.max(minTicks, lifeTimeCount);
+    lifeTimeCount = Math.min(maxTicks, lifeTimeCount);
+    return lifeTimeCount;
+}
+
+function _adjust_publishingEnable(publishingEnabled?: boolean | null): boolean {
+    return publishingEnabled === null || publishingEnabled === undefined ? true : !!publishingEnabled;
+}
+
+function _adjust_maxNotificationsPerPublish(maxNotificationsPerPublish?: number): number {
+    assert(Subscription.maxNotificationPerPublishHighLimit > 0, ""Subscription.maxNotificationPerPublishHighLimit must be positive"");
+
+    maxNotificationsPerPublish = maxNotificationsPerPublish || 0;
+    assert(typeof maxNotificationsPerPublish === ""number"");
+
+    // must be strictly positive
+    maxNotificationsPerPublish = maxNotificationsPerPublish >= 0 ? maxNotificationsPerPublish : 0;
+
+    if (maxNotificationsPerPublish === 0) {
+        // if zero then => use our HighLimit
+        maxNotificationsPerPublish = Subscription.maxNotificationPerPublishHigh",1,CVE-2022-24375,CWE-400,node-opcua/node-opcua,3fd46ec156e7718a506be41f3916310b6bdd0407,javascript
+"function _adjust_lifeTimeCount(lifeTimeCount: number, maxKeepAliveCount: number, publishingInterval: number): number {
+    lifeTimeCount = lifeTimeCount || 1;
+
+    // let's make sure that lifeTimeCount is at least three time maxKeepAliveCount
+    // Note : the specs say ( part 3  - CreateSubscriptionParameter )
+    //        ""The lifetime count shall be a minimum of three times the keep keep-alive count.""
+    lifeTimeCount = Math.max(lifeTimeCount, maxKeepAliveCount * 3);
+
+    const minTicks = Math.ceil(Subscription.minimumLifetimeDuration / publishingInterval);
+    const maxTicks = Math.floor(Subscription.maximumLifetimeDuration / publishingInterval);
+
+    lifeTimeCount = Math.max(minTicks, lifeTimeCount);
+    lifeTimeCount = Math.min(maxTicks, lifeTimeCount);
+    return lifeTimeCount;
+}
+
+function _adjust_publishingEnable(publishingEnabled?: boolean | null): boolean {
+    return publishingEnabled === null || publishingEnabled === undefined ? true : !!publishingEnabled;
+}
+
+function _adjust_maxNotificationsPerPublish(maxNotificationsPerPublish?: number): number {
+    assert(Subscription.maxNotificationPerPublishHighLimit > 0, ""Subscription.maxNotificationPerPublishHighLimit must be positive"");
+
+    maxNotificationsPerPublish = maxNotificationsPerPublish || 0;
+    assert(typeof maxNotificationsPerPublish === ""number"");
+
+    // must be strictly positive
+    maxNotificationsPerPublish = maxNotificationsPerPublish >= 0 ? maxNotificationsPerPublish : 0;
+
+    if (maxNotificationsPerPublish === 0) {
+        // if zero then => use our HighLimit
+        maxNotificationsPerPublish = Subscription.maxNotificationPerPublishHighLimit;
+    } else {
+        // if not zero then should be capped by maxNotificationPerPublishHighLimit
+        maxNotificationsPerPublish = Math.min(Subscription.maxNotificationPerPublishHighLimit, maxNotificationsPerPublish);
+    }
+
+    assert(maxNotificationsPerPublish !== 0 && maxNotificationsPerPublish <= Subscription.maxNotificationPerPublishHighLimit)",1,CVE-2022-24375,CWE-400,node-opcua/node-opcua,3fd46ec156e7718a506be41f3916310b6bdd0407,javascript
+"function reconstruct_fake_publish_engine() {
+    fake_publish_engine = getFakePublishEngine();
+}
+
+// eslint-disable-next-line import/order
+const describe = require(""node-opcua-leak-detector"").describeWithLeakDetector;
+describe(""Subscriptions"", function () {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const test = this;
+    beforeEach(function () {
+        test.clock = sinon.useFakeTimers();
+        reconstruct_fake_publish_engine();
+    });
+
+    afterEach(function () {
+        test.clock.restore();
+    });
+
+    it(""T1 - a subscription will make sure that lifeTimeCount is at least 3 times maxKeepAliveCount"", function () {
+        {
+            const subscription1 = new Subscription({
+                publishingInterval: 1000,
+                maxKeepAliveCount: 20,
+                lifeTimeCount: 60, // at least 3 times maxKeepAliveCount
+                //
+                publishEngine: fake_publish_engine,
+                globalCounter: { totalMonitoredItemCount: 0 },
+                serverCapabilities: { maxMonitoredItems: 10000, maxMonitoredItemsPerSubscription: 1000 }
+            });
+            subscription1.maxKeepAliveCount.should.eql(20);
+            subscription1.lifeTimeCount.should.eql(
+                60,
+                ""lifeTimeCount shall be unchanged because it is at least 3 times maxKeepAliveCount""
+            );
+
+            subscription1.terminate();
+            subscription1.dispose();
+        }
+        {
+            const subscription2 = new Subscription({",1,CVE-2022-24375,CWE-400,node-opcua/node-opcua,3fd46ec156e7718a506be41f3916310b6bdd0407,javascript
+"function add_mock_monitored_item2(subscription, someVariableNode) {
+            const monitoredItemCreateRequest = new MonitoredItemCreateRequest({
+                itemToMonitor: { nodeId: someVariableNode },
+                monitoringMode: MonitoringMode.Reporting,
+                requestedParameters: {
+                    clientHandle: 123,
+                    queueSize: 10,
+                    samplingInterval: 200
+                }
+            });
+            const createResult = subscription.createMonitoredItem(
+                addressSpace,
+                TimestampsToReturn.Both,
+                monitoredItemCreateRequest
+            );
+            const monitoredItem = subscription.getMonitoredItem(createResult.monitoredItemId);
+
+            return monitoredItem;
+        }
+
+        before(function (done) {
+            engine = new ServerEngine();
+            engine.initialize({ nodeset_filename: mini_nodeset_filename }, function () {
+                addressSpace = engine.addressSpace;
+                namespace = addressSpace.getOwnNamespace();
+
+                const node = namespace.addVariable({
+                    componentOf: ""RootFolder"",
+                    browseName: ""SomeVariable"",
+                    dataType: ""UInt32"",
+                    value: { dataType: DataType.UInt32, value: 0 }
+                });
+                someVariableNode = node.nodeId;
+                done();
+            });
+        });
+        after(async () => {
+            await engine.shutdown();
+            engine = null;
+        });",1,CVE-2022-24375,CWE-400,node-opcua/node-opcua,3fd46ec156e7718a506be41f3916310b6bdd0407,javascript
+"function simulate_client_adding_publish_request(publishEngine, callback) {
+            const publishRequest = new PublishRequest({});
+            publishEngine._on_PublishRequest(publishRequest, callback);
+            test.clock.tick(0);
+        }
+
+        let subscription;
+        let notification_event_spy, keepalive_event_spy, expire_event_spy;
+
+        beforeEach(function () {
+            publish_engine = new ServerSidePublishEngine();
+            subscription = new Subscription({
+                id: 1000,
+                publishingInterval: 100,
+                maxKeepAliveCount: 10,
+                lifeTimeCount: 30,
+                publishingEnabled: true,
+                publishEngine: publish_engine,
+                globalCounter: { totalMonitoredItemCount: 0 },
+                serverCapabilities: { maxMonitoredItems: 10000, maxMonitoredItemsPerSubscription: 1000 }
+            });
+            publish_engine.add_subscription(subscription);
+
+            notification_event_spy = sinon.spy();
+            keepalive_event_spy = sinon.spy();
+            expire_event_spy = sinon.spy();
+            subscription.on(""notification"", notification_event_spy);
+            subscription.on(""keepalive"", keepalive_event_spy);
+            subscription.on(""expired"", expire_event_spy);
+
+            subscription.on(""monitoredItem"", function (monitoredItem) {
+                monitoredItem.samplingFunc = function () {
+                    /**  */
+                };
+            });
+        });
+
+        afterEach(function (done) {
+            subscription.on(""terminated"", function () {
+                done();",1,CVE-2022-24375,CWE-400,node-opcua/node-opcua,3fd46ec156e7718a506be41f3916310b6bdd0407,javascript
+"function parse (sri, opts) {
+  opts = opts || {}
+  if (typeof sri === 'string') {
+    return _parse(sri, opts)
+  } else if (sri.algorithm && sri.digest) {
+    const fullSri = new Integrity()
+    fullSri[sri.algorithm] = [sri]
+    return _parse(stringify(fullSri, opts), opts)
+  } else {
+    return _parse(stringify(sri, opts), opts)
+  }
+}
+
+function _parse (integrity, opts) {
+  // 3.4.3. Parse metadata
+  // https://w3c.github.io/webappsec-subresource-integrity/#parse-metadata
+  if (opts.single) {
+    return new Hash(integrity, opts)
+  }
+  return integrity.trim().split(/\s+/).reduce((acc, string) => {
+    const hash = new Hash(string, opts)
+    if (hash.algorithm && hash.digest) {
+      const algo = hash.algorithm
+      if (!acc[algo]) { acc[algo] = [] }
+      acc[algo].push(hash)
+    }
+    return acc
+  }, new Integrity())
+}
+
+module.exports.stringify = stringify
+function stringify (obj, opts) {
+  if (obj.algorithm && obj.digest) {
+    return Hash.prototype.toString.call(obj, opts)
+  } else if (typeof obj === 'string') {
+    return stringify(parse(obj, opts), opts)
+  } else {
+    return Integrity.prototype.toString.call(obj, opts)
+  }
+}",0,CVE-2018-7651,CWE-400,zkat/ssri,d0ebcdc22cb5c8f47f89716d08b3518b2485d65d,javascript
+"function _parse (integrity, opts) {
+  // 3.4.3. Parse metadata
+  // https://w3c.github.io/webappsec-subresource-integrity/#parse-metadata
+  if (opts.single) {
+    return new Hash(integrity, opts)
+  }
+  return integrity.trim().split(/\s+/).reduce((acc, string) => {
+    const hash = new Hash(string, opts)
+    if (hash.algorithm && hash.digest) {
+      const algo = hash.algorithm
+      if (!acc[algo]) { acc[algo] = [] }
+      acc[algo].push(hash)
+    }
+    return acc
+  }, new Integrity())
+}
+
+module.exports.stringify = stringify
+function stringify (obj, opts) {
+  if (obj.algorithm && obj.digest) {
+    return Hash.prototype.toString.call(obj, opts)
+  } else if (typeof obj === 'string') {
+    return stringify(parse(obj, opts), opts)
+  } else {
+    return Integrity.prototype.toString.call(obj, opts)
+  }
+}
+
+module.exports.fromHex = fromHex
+function fromHex (hexDigest, algorithm, opts) {
+  const optString = (opts && opts.options && opts.options.length)
+  ? `?${opts.options.join('?')}`
+  : ''
+  return parse(
+    `${algorithm}-${
+      Buffer.from(hexDigest, 'hex').toString('base64')
+    }${optString}`, opts
+  )
+}
+",0,CVE-2018-7651,CWE-400,zkat/ssri,d0ebcdc22cb5c8f47f89716d08b3518b2485d65d,javascript
+"function stringify (obj, opts) {
+  if (obj.algorithm && obj.digest) {
+    return Hash.prototype.toString.call(obj, opts)
+  } else if (typeof obj === 'string') {
+    return stringify(parse(obj, opts), opts)
+  } else {
+    return Integrity.prototype.toString.call(obj, opts)
+  }
+}
+
+module.exports.fromHex = fromHex
+function fromHex (hexDigest, algorithm, opts) {
+  const optString = (opts && opts.options && opts.options.length)
+  ? `?${opts.options.join('?')}`
+  : ''
+  return parse(
+    `${algorithm}-${
+      Buffer.from(hexDigest, 'hex').toString('base64')
+    }${optString}`, opts
+  )
+}
+
+module.exports.fromData = fromData
+function fromData (data, opts) {
+  opts = opts || {}
+  const algorithms = opts.algorithms || ['sha512']
+  const optString = opts.options && opts.options.length
+  ? `?${opts.options.join('?')}`
+  : ''
+  return algorithms.reduce((acc, algo) => {
+    const digest = crypto.createHash(algo).update(data).digest('base64')
+    const hash = new Hash(
+      `${algo}-${digest}${optString}`,
+       opts
+    )
+    if (hash.algorithm && hash.digest) {
+      const algo = hash.algorithm
+      if (!acc[algo]) { acc[algo] = [] }
+      acc[algo].push(hash)
+    }",0,CVE-2018-7651,CWE-400,zkat/ssri,d0ebcdc22cb5c8f47f89716d08b3518b2485d65d,javascript
+"function hash (data, algorithm) {
+  return crypto.createHash(algorithm).update(data).digest('base64')
+}
+
+test('serializes Integrity-likes', t => {
+  const sriLike = {
+    'sha512': [{
+      digest: 'foo',
+      algorithm: 'sha512',
+      options: ['ayy', 'woo']
+    }, {
+      digest: 'bar',
+      algorithm: 'sha512'
+    }],
+    'whirlpool': [{
+      digest: 'wut',
+      algorithm: 'whirlpool'
+    }]
+  }
+  t.equal(
+    ssri.stringify(sriLike),
+    'sha512-foo?ayy?woo sha512-bar whirlpool-wut',
+    'stringification contains correct data for all entries'
+  )
+  t.done()
+})
+
+test('serializes Hash-likes', t => {
+  const sriLike = {
+    digest: 'foo',
+    algorithm: 'sha512'
+  }
+  t.equal(
+    ssri.stringify(sriLike),
+    'sha512-foo',
+    'serialization has correct data'
+  )
+  t.done()
+})
+",0,CVE-2018-7651,CWE-400,zkat/ssri,d0ebcdc22cb5c8f47f89716d08b3518b2485d65d,javascript
+"var configure = function( app, configObject ) {
+	if( typeof configObject !== ""undefined"" ) {
+		configuration.directory = configObject.directory || configuration.directory;
+		configuration.extension = configObject.extension || configuration.extension;
+		configuration.objectNotation = configObject.objectNotation || configuration.objectNotation;
+	}
+
+	// Register routes
+	app.get( ""/i18n/:locale"", i18nRoutes.i18n );
+	app.get( ""/i18n/:locale/:phrase"", i18nRoutes.translate );
+};
+
+/**
+ * Middleware to allow retrieval of users locale in the template engine.
+ * @param {Object} request
+ * @param {Object} response
+ * @param {Function} [next]
+ */
+var getLocale = function( request, response, next ) {
+	response.locals.i18n = {
+		getLocale : function() {
+			return i18n.getLocale.apply( request, arguments );
+		}
+	};
+
+	// For backwards compatibility, also define ""acceptedLanguage"".
+	response.locals.acceptedLanguage = response.locals.i18n.getLocale;
+
+	if( typeof next !== ""undefined"" ) {
+		next();
+	}
+};
+
+var i18nRoutes = {
+	/**
+	 * Sends a translation file to the client.
+	 * @param request
+	 * @param response
+	 */
+	i18n : function( request, response ) {",0,CVE-2016-10524,CWE-400,oliversalzburg/i18n-node-angular,877720d2d9bb90dc8233706e81ffa03f99fc9dc8,javascript
+"var getLocale = function( request, response, next ) {
+	response.locals.i18n = {
+		getLocale : function() {
+			return i18n.getLocale.apply( request, arguments );
+		}
+	};
+
+	// For backwards compatibility, also define ""acceptedLanguage"".
+	response.locals.acceptedLanguage = response.locals.i18n.getLocale;
+
+	if( typeof next !== ""undefined"" ) {
+		next();
+	}
+};
+
+var i18nRoutes = {
+	/**
+	 * Sends a translation file to the client.
+	 * @param request
+	 * @param response
+	 */
+	i18n : function( request, response ) {
+		var locale = request.params.locale;
+		var sendFile = response.sendFile || response.sendfile;
+		sendFile.apply( response, [ path.join( configuration.directory, locale + configuration.extension ) ] );
+	},
+
+	/**
+	 * Translate a given string and provide the result.
+	 * @param request
+	 * @param response
+	 */
+	translate : function( request, response ) {
+		var locale = request.params.locale;
+		var phrase = request.params.phrase;
+
+		var result;
+		if( request.query.plural ) {
+			var singular = phrase;
+			var plural = request.query.plural;",0,CVE-2016-10524,CWE-400,oliversalzburg/i18n-node-angular,877720d2d9bb90dc8233706e81ffa03f99fc9dc8,javascript
+"getLocale : function() {
+			return i18n.getLocale.apply( request, arguments );
+		}
+	};
+
+	// For backwards compatibility, also define ""acceptedLanguage"".
+	response.locals.acceptedLanguage = response.locals.i18n.getLocale;
+
+	if( typeof next !== ""undefined"" ) {
+		next();
+	}
+};
+
+var i18nRoutes = {
+	/**
+	 * Sends a translation file to the client.
+	 * @param request
+	 * @param response
+	 */
+	i18n : function( request, response ) {
+		var locale = request.params.locale;
+		var sendFile = response.sendFile || response.sendfile;
+		sendFile.apply( response, [ path.join( configuration.directory, locale + configuration.extension ) ] );
+	},
+
+	/**
+	 * Translate a given string and provide the result.
+	 * @param request
+	 * @param response
+	 */
+	translate : function( request, response ) {
+		var locale = request.params.locale;
+		var phrase = request.params.phrase;
+
+		var result;
+		if( request.query.plural ) {
+			var singular = phrase;
+			var plural = request.query.plural;
+			// Make sure the information is added to the catalog if it doesn't exist yet.
+			var translated = i18n.__n( {",0,CVE-2016-10524,CWE-400,oliversalzburg/i18n-node-angular,877720d2d9bb90dc8233706e81ffa03f99fc9dc8,javascript
+"function _typeof(obj) { if (typeof Symbol === ""function"" && typeof Symbol.iterator === ""symbol"") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === ""function"" && obj.constructor === Symbol && obj !== Symbol.prototype ? ""symbol"" : typeof obj; }; } return _typeof(obj); }
+
+function _slicedToArray(arr, i) { return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _nonIterableRest(); }
+
+function _nonIterableRest() { throw new TypeError(""Invalid attempt to destructure non-iterable instance""); }
+
+function _iterableToArrayLimit(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i[""return""] != null) _i[""return""](); } finally { if (_d) throw _e; } } return _arr; }
+
+function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
+
+function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread(); }
+
+function _nonIterableSpread() { throw new TypeError(""Invalid attempt to spread non-iterable instance""); }
+
+function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.prototype.toString.call(iter) === ""[object Arguments]"") return Array.from(iter); }
+
+function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
+
+function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
+
+function _objectSpread(target) { ",0,CVE-2019-17592,CWE-400,adaltas/node-csv-parse,b9d35940c6815cdf1dfd6b21857a1f6d0fd51e4a,javascript
+"function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === ""function"" && obj.constructor === Symbol && obj !== Symbol.prototype ? ""symbol"" : typeof obj; }; } return _typeof(obj); }
+
+function _slicedToArray(arr, i) { return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _nonIterableRest(); }
+
+function _nonIterableRest() { throw new TypeError(""Invalid attempt to destructure non-iterable instance""); }
+
+function _iterableToArrayLimit(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i[""return""] != null) _i[""return""](); } finally { if (_d) throw _e; } } return _arr; }
+
+function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
+
+function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread(); }
+
+function _nonIterableSpread() { throw new TypeError(""Invalid attempt to spread non-iterable instance""); }
+
+function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.prototype.toString.call(iter) === ""[object Arguments]"") return Array.from(iter); }
+
+function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
+
+function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
+
+function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2",0,CVE-2019-17592,CWE-400,adaltas/node-csv-parse,b9d35940c6815cdf1dfd6b21857a1f6d0fd51e4a,javascript
+"function _typeof(obj) { return obj && typeof Symbol === ""function"" && obj.constructor === Symbol && obj !== Symbol.prototype ? ""symbol"" : typeof obj; }; } return _typeof(obj); }
+
+function _slicedToArray(arr, i) { return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _nonIterableRest(); }
+
+function _nonIterableRest() { throw new TypeError(""Invalid attempt to destructure non-iterable instance""); }
+
+function _iterableToArrayLimit(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i[""return""] != null) _i[""return""](); } finally { if (_d) throw _e; } } return _arr; }
+
+function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
+
+function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread(); }
+
+function _nonIterableSpread() { throw new TypeError(""Invalid attempt to spread non-iterable instance""); }
+
+function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.prototype.toString.call(iter) === ""[object Arguments]"") return Array.from(iter); }
+
+function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
+
+function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
+
+function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(source, true).forEach(function (key) { _definePropert",0,CVE-2019-17592,CWE-400,adaltas/node-csv-parse,b9d35940c6815cdf1dfd6b21857a1f6d0fd51e4a,javascript
+"const parse = function(){
+  let data, options, callback
+  for(let i in arguments){
+    const argument = arguments[i]
+    const type = typeof argument
+    if(data === undefined && (typeof argument === 'string' || Buffer.isBuffer(argument))){
+      data = argument
+    }else if(options === undefined && isObject(argument)){
+      options = argument
+    }else if(callback === undefined && type === 'function'){
+      callback = argument
+    }else{
+      throw new Error(`Invalid argument: got ${JSON.stringify(argument)} at index ${i}`)
+    }
+  }
+  const parser = new Parser(options)
+  if(callback){
+    const records = options === undefined || options.objname === undefined ? [] : {}
+    parser.on('readable', function(){
+      let record
+      while(record = this.read()){
+        if(options === undefined || options.objname === undefined){
+          records.push(record)
+        }else{
+          records[record[0]] = record[1]
+        }
+      }
+    })
+    parser.on('error', function(err){
+      callback(err, undefined, parser.info)
+    })
+    parser.on('end', function(){
+      callback(undefined, records, parser.info)
+    })
+  }
+  if(data !== undefined){
+    parser.write(data)
+    parser.end()
+  }
+  return parser",0,CVE-2019-17592,CWE-400,adaltas/node-csv-parse,b9d35940c6815cdf1dfd6b21857a1f6d0fd51e4a,javascript
+"const underscore = function(str){
+  return str.replace(/([A-Z])/g, function(_, match, index){
+    return '_' + match.toLowerCase()
+  })
+}
+
+const isObject = function(obj){
+  return (typeof obj === 'object' && obj !== null && !Array.isArray(obj))
+}
+
+const normalizeColumnsArray = function(columns){
+  // console.log('columns', columns)
+  const normalizedColumns = [];
+
+  for(let i=0; i< columns.length; i++){
+    const column = columns[i]
+    if(column === undefined || column === null || column === false){
+      normalizedColumns[i] = { disabled: true }
+    }else if(typeof column === 'string'){
+      normalizedColumns[i] = { name: column }
+    }else if(isObject(column)){
+      if(typeof column.name !== 'string'){
+        throw new Error(`Invalid Option columns: property ""name"" is required at position ${i} when column is an object literal`)
+      }
+      normalizedColumns[i] = column
+    }else{
+      throw new Error(`Invalid Option columns: expect a string or an object, got ${JSON.stringify(column)} at position ${i}`)
+    }
+  }
+  // console.log(normalizedColumns)
+  return normalizedColumns;
+}",0,CVE-2019-17592,CWE-400,adaltas/node-csv-parse,b9d35940c6815cdf1dfd6b21857a1f6d0fd51e4a,javascript
+"const isObject = function(obj){
+  return (typeof obj === 'object' && obj !== null && !Array.isArray(obj))
+}
+
+const normalizeColumnsArray = function(columns){
+  // console.log('columns', columns)
+  const normalizedColumns = [];
+
+  for(let i=0; i< columns.length; i++){
+    const column = columns[i]
+    if(column === undefined || column === null || column === false){
+      normalizedColumns[i] = { disabled: true }
+    }else if(typeof column === 'string'){
+      normalizedColumns[i] = { name: column }
+    }else if(isObject(column)){
+      if(typeof column.name !== 'string'){
+        throw new Error(`Invalid Option columns: property ""name"" is required at position ${i} when column is an object literal`)
+      }
+      normalizedColumns[i] = column
+    }else{
+      throw new Error(`Invalid Option columns: expect a string or an object, got ${JSON.stringify(column)} at position ${i}`)
+    }
+  }
+  // console.log(normalizedColumns)
+  return normalizedColumns;
+}",0,CVE-2019-17592,CWE-400,adaltas/node-csv-parse,b9d35940c6815cdf1dfd6b21857a1f6d0fd51e4a,javascript
+"extend : function (regexes, extensions) {
+            var mergedRegexes = {};
+            for (var i in regexes) {
+                if (extensions[i] && extensions[i].length % 2 === 0) {
+                    mergedRegexes[i] = extensions[i].concat(regexes[i]);
+                } else {
+                    mergedRegexes[i] = regexes[i];
+                }
+            }
+            return mergedRegexes;
+        },
+        has : function (str1, str2) {
+          if (typeof str1 === ""string"") {
+            return str2.toLowerCase().indexOf(str1.toLowerCase()) !== -1;
+          } else {
+            return false;
+          }
+        },
+        lowerize : function (str) {
+            return str.toLowerCase();
+        },
+        major : function (version) {
+            return typeof(version) === STR_TYPE ? version.replace(/[^\d\.]/g,'').split(""."")[0] : undefined;
+        },
+        trim : function (str) {
+          return str.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, '');
+        }
+    };
+
+
+    ///////////////
+    // Map helper
+    //////////////
+
+
+    var mapper = {
+
+        rgx : function (ua, arrays) {
+
+            var i = 0, j, k, p, q, matches, match;",0,CVE-2020-7733,CWE-400,faisalman/ua-parser-js,233d3bae22a795153a7e6638887ce159c63e557d,javascript
+"has : function (str1, str2) {
+          if (typeof str1 === ""string"") {
+            return str2.toLowerCase().indexOf(str1.toLowerCase()) !== -1;
+          } else {
+            return false;
+          }
+        },
+        lowerize : function (str) {
+            return str.toLowerCase();
+        },
+        major : function (version) {
+            return typeof(version) === STR_TYPE ? version.replace(/[^\d\.]/g,'').split(""."")[0] : undefined;
+        },
+        trim : function (str) {
+          return str.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, '');
+        }
+    };
+
+
+    ///////////////
+    // Map helper
+    //////////////
+
+
+    var mapper = {
+
+        rgx : function (ua, arrays) {
+
+            var i = 0, j, k, p, q, matches, match;
+
+            // loop through all regexes maps
+            while (i < arrays.length && !matches) {
+
+                var regex = arrays[i],       // even sequence (0,2,4,..)
+                    props = arrays[i + 1];   // odd sequence (1,3,5,..)
+                j = k = 0;
+
+                // try matching uastring with regexes
+                while (j < regex.length && !matches) {
+",0,CVE-2020-7733,CWE-400,faisalman/ua-parser-js,233d3bae22a795153a7e6638887ce159c63e557d,javascript
+"lowerize : function (str) {
+            return str.toLowerCase();
+        },
+        major : function (version) {
+            return typeof(version) === STR_TYPE ? version.replace(/[^\d\.]/g,'').split(""."")[0] : undefined;
+        },
+        trim : function (str) {
+          return str.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, '');
+        }
+    };
+
+
+    ///////////////
+    // Map helper
+    //////////////
+
+
+    var mapper = {
+
+        rgx : function (ua, arrays) {
+
+            var i = 0, j, k, p, q, matches, match;
+
+            // loop through all regexes maps
+            while (i < arrays.length && !matches) {
+
+                var regex = arrays[i],       // even sequence (0,2,4,..)
+                    props = arrays[i + 1];   // odd sequence (1,3,5,..)
+                j = k = 0;
+
+                // try matching uastring with regexes
+                while (j < regex.length && !matches) {
+
+                    matches = regex[j++].exec(ua);
+
+                    if (!!matches) {
+                        for (p = 0; p < props.length; p++) {
+                            match = matches[++k];
+                            q = props[p];
+                            // check if given property is actually array",0,CVE-2020-7733,CWE-400,faisalman/ua-parser-js,233d3bae22a795153a7e6638887ce159c63e557d,javascript
+"link: function(prefix) {
+      return '<a href=""' + prefix + '/' + this.url + '"">' + this.text + '</a>';
+    }};
+    shouldCompileTo(string, [hash, helpers], '<a href=""/root/goodbye"">Goodbye</a>');
+  });
+
+  it('helper for raw block gets raw content', function() {
+    var string = '{{{{raw}}}} {{test}} {{{{/raw}}}}';
+    var hash = { test: 'hello' };
+    var helpers = { raw: function(options) {
+        return options.fn();
+    } };
+    shouldCompileTo(string, [hash, helpers], ' {{test}} ',
+                    'raw block helper gets raw content');
+  });
+
+  it('helper for raw block gets parameters', function() {
+    var string = '{{{{raw 1 2 3}}}} {{test}} {{{{/raw}}}}';
+    var hash = { test: 'hello' };
+    var helpers = { raw: function(a, b, c, options) {
+        return options.fn() + a + b + c;
+    } };
+    shouldCompileTo(string, [hash, helpers], ' {{test}} 123',
+                    'raw block helper gets raw content');
+  });
+
+  describe('raw block parsing (with identity helper-function)', function() {
+
+    function runWithIdentityHelper(template, expected) {
+      var helpers = {
+        identity: function(options) {
+          return options.fn();
+        }
+      };
+      shouldCompileTo(template, [{}, helpers], expected);
+    }
+
+    it('helper for nested raw block gets raw content', function() {
+      runWithIdentityHelper('{{{{identity}}}} {{{{b}}}} {{{{/b}}}} {{{{/identity}}}}', ' {{{{b}}}} {{{{/b}}}} ');
+    });",0,CVE-2019-20922,CWE-400,handlebars-lang/handlebars.js,8d5530ee2c3ea9f0aee3fde310b9f36887d00b8b,javascript
+"raw: function(options) {
+        return options.fn();
+    } };
+    shouldCompileTo(string, [hash, helpers], ' {{test}} ',
+                    'raw block helper gets raw content');
+  });
+
+  it('helper for raw block gets parameters', function() {
+    var string = '{{{{raw 1 2 3}}}} {{test}} {{{{/raw}}}}';
+    var hash = { test: 'hello' };
+    var helpers = { raw: function(a, b, c, options) {
+        return options.fn() + a + b + c;
+    } };
+    shouldCompileTo(string, [hash, helpers], ' {{test}} 123',
+                    'raw block helper gets raw content');
+  });
+
+  describe('raw block parsing (with identity helper-function)', function() {
+
+    function runWithIdentityHelper(template, expected) {
+      var helpers = {
+        identity: function(options) {
+          return options.fn();
+        }
+      };
+      shouldCompileTo(template, [{}, helpers], expected);
+    }
+
+    it('helper for nested raw block gets raw content', function() {
+      runWithIdentityHelper('{{{{identity}}}} {{{{b}}}} {{{{/b}}}} {{{{/identity}}}}', ' {{{{b}}}} {{{{/b}}}} ');
+    });
+
+    it('helper for nested raw block works with empty content', function() {
+      runWithIdentityHelper('{{{{identity}}}}{{{{/identity}}}}', '');
+    });
+
+    it('helper for nested raw block works if nested raw blocks are broken', function() {
+      runWithIdentityHelper('{{{{identity}}}} {{{{a}}}} {{{{ {{{{/ }}}} }}}} {{{{/identity}}}}', ' {{{{a}}}} {{{{ {{{{/ }}}} }}}} ');
+    });
+",0,CVE-2019-20922,CWE-400,handlebars-lang/handlebars.js,8d5530ee2c3ea9f0aee3fde310b9f36887d00b8b,javascript
+"raw: function(a, b, c, options) {
+        return options.fn() + a + b + c;
+    } };
+    shouldCompileTo(string, [hash, helpers], ' {{test}} 123',
+                    'raw block helper gets raw content');
+  });
+
+  describe('raw block parsing (with identity helper-function)', function() {
+
+    function runWithIdentityHelper(template, expected) {
+      var helpers = {
+        identity: function(options) {
+          return options.fn();
+        }
+      };
+      shouldCompileTo(template, [{}, helpers], expected);
+    }
+
+    it('helper for nested raw block gets raw content', function() {
+      runWithIdentityHelper('{{{{identity}}}} {{{{b}}}} {{{{/b}}}} {{{{/identity}}}}', ' {{{{b}}}} {{{{/b}}}} ');
+    });
+
+    it('helper for nested raw block works with empty content', function() {
+      runWithIdentityHelper('{{{{identity}}}}{{{{/identity}}}}', '');
+    });
+
+    it('helper for nested raw block works if nested raw blocks are broken', function() {
+      runWithIdentityHelper('{{{{identity}}}} {{{{a}}}} {{{{ {{{{/ }}}} }}}} {{{{/identity}}}}', ' {{{{a}}}} {{{{ {{{{/ }}}} }}}} ');
+    });
+
+    it('helper for nested raw block throw exception when with missing closing braces', function() {
+      var string = '{{{{a}}}} {{{{/a';
+      shouldThrow(function() {
+        Handlebars.compile(string)();
+      });
+    });
+  });
+
+  it('helper block with identical context', function() {
+    var string = '{{#goodbyes}}{{name}}{{/goodbyes}}';",0,CVE-2019-20922,CWE-400,handlebars-lang/handlebars.js,8d5530ee2c3ea9f0aee3fde310b9f36887d00b8b,javascript
+"function shouldMatchTokens(result, tokens) {
+  for (var index = 0; index < result.length; index++) {
+    equals(result[index].name, tokens[index]);
+  }
+}
+function shouldBeToken(result, name, text) {
+  equals(result.name, name);
+  equals(result.text, text);
+}
+
+describe('Tokenizer', function() {
+  if (!Handlebars.Parser) {
+    return;
+  }
+
+  function tokenize(template) {
+    var parser = Handlebars.Parser,
+        lexer = parser.lexer;
+
+    lexer.setInput(template);
+    var out = [],
+        token;
+
+    while ((token = lexer.lex())) {
+      var result = parser.terminals_[token] || token;
+      if (!result || result === 'EOF' || result === 'INVALID') {
+        break;
+      }
+      out.push({name: result, text: lexer.yytext});
+    }
+
+    return out;
+  }
+
+  it('tokenizes a simple mustache as ""OPEN ID CLOSE""', function() {
+    var result = tokenize('{{foo}}');
+    shouldMatchTokens(result, ['OPEN', 'ID', 'CLOSE']);
+    shouldBeToken(result[1], 'ID', 'foo');
+  });
+",0,CVE-2019-20922,CWE-400,handlebars-lang/handlebars.js,8d5530ee2c3ea9f0aee3fde310b9f36887d00b8b,javascript
+"function shouldBeToken(result, name, text) {
+  equals(result.name, name);
+  equals(result.text, text);
+}
+
+describe('Tokenizer', function() {
+  if (!Handlebars.Parser) {
+    return;
+  }
+
+  function tokenize(template) {
+    var parser = Handlebars.Parser,
+        lexer = parser.lexer;
+
+    lexer.setInput(template);
+    var out = [],
+        token;
+
+    while ((token = lexer.lex())) {
+      var result = parser.terminals_[token] || token;
+      if (!result || result === 'EOF' || result === 'INVALID') {
+        break;
+      }
+      out.push({name: result, text: lexer.yytext});
+    }
+
+    return out;
+  }
+
+  it('tokenizes a simple mustache as ""OPEN ID CLOSE""', function() {
+    var result = tokenize('{{foo}}');
+    shouldMatchTokens(result, ['OPEN', 'ID', 'CLOSE']);
+    shouldBeToken(result[1], 'ID', 'foo');
+  });
+
+  it('supports unescaping with &', function() {
+    var result = tokenize('{{&bar}}');
+    shouldMatchTokens(result, ['OPEN', 'ID', 'CLOSE']);
+
+    shouldBeToken(result[0], 'OPEN', '{{&');",0,CVE-2019-20922,CWE-400,handlebars-lang/handlebars.js,8d5530ee2c3ea9f0aee3fde310b9f36887d00b8b,javascript
+"function tokenize(template) {
+    var parser = Handlebars.Parser,
+        lexer = parser.lexer;
+
+    lexer.setInput(template);
+    var out = [],
+        token;
+
+    while ((token = lexer.lex())) {
+      var result = parser.terminals_[token] || token;
+      if (!result || result === 'EOF' || result === 'INVALID') {
+        break;
+      }
+      out.push({name: result, text: lexer.yytext});
+    }
+
+    return out;
+  }
+
+  it('tokenizes a simple mustache as ""OPEN ID CLOSE""', function() {
+    var result = tokenize('{{foo}}');
+    shouldMatchTokens(result, ['OPEN', 'ID', 'CLOSE']);
+    shouldBeToken(result[1], 'ID', 'foo');
+  });
+
+  it('supports unescaping with &', function() {
+    var result = tokenize('{{&bar}}');
+    shouldMatchTokens(result, ['OPEN', 'ID', 'CLOSE']);
+
+    shouldBeToken(result[0], 'OPEN', '{{&');
+    shouldBeToken(result[1], 'ID', 'bar');
+  });
+
+  it('supports unescaping with {{{', function() {
+    var result = tokenize('{{{bar}}}');
+    shouldMatchTokens(result, ['OPEN_UNESCAPED', 'ID', 'CLOSE_UNESCAPED']);
+
+    shouldBeToken(result[1], 'ID', 'bar');
+  });
+",0,CVE-2019-20922,CWE-400,handlebars-lang/handlebars.js,8d5530ee2c3ea9f0aee3fde310b9f36887d00b8b,javascript
+"var keywords = function(){
+    function kw(type) {return {type: type, style: ""keyword""};}
+    var A = kw(""keyword a""), B = kw(""keyword b""), C = kw(""keyword c""), D = kw(""keyword d"");
+    var operator = kw(""operator""), atom = {type: ""atom"", style: ""atom""};
+
+    return {
+      ""if"": kw(""if""), ""while"": A, ""with"": A, ""else"": B, ""do"": B, ""try"": B, ""finally"": B,
+      ""return"": D, ""break"": D, ""continue"": D, ""new"": kw(""new""), ""delete"": C, ""void"": C, ""throw"": C,
+      ""debugger"": kw(""debugger""), ""var"": kw(""var""), ""const"": kw(""var""), ""let"": kw(""var""),
+      ""function"": kw(""function""), ""catch"": kw(""catch""),
+      ""for"": kw(""for""), ""switch"": kw(""switch""), ""case"": kw(""case""), ""default"": kw(""default""),
+      ""in"": operator, ""typeof"": operator, ""instanceof"": operator,
+      ""true"": atom, ""false"": atom, ""null"": atom, ""undefined"": atom, ""NaN"": atom, ""Infinity"": atom,
+      ""this"": kw(""this""), ""class"": kw(""class""), ""super"": kw(""atom""),
+      ""yield"": C, ""export"": kw(""export""), ""import"": kw(""import""), ""extends"": C,
+      ""await"": C
+    };
+  }();
+
+  var isOperatorChar = /[+\-*&%=<>!?|~^@]/;
+  var isJsonldKeyword = /^@(context|id|value|language|type|container|list|set|reverse|index|base|vocab|graph)""/;
+
+  function readRegexp(stream) {
+    var escaped = false, next, inSet = false;
+    while ((next = stream.next()) != null) {
+      if (!escaped) {
+        if (next == ""/"" && !inSet) return;
+        if (next == ""["") inSet = true;
+        else if (inSet && next == ""]"") inSet = false;
+      }
+      escaped = !escaped && next == ""\\"";
+    }
+  }
+
+  // Used as scratch variables to communicate multiple values without
+  // consing up tons of objects.
+  var type, content;
+  function ret(tp, style, cont) {
+    type = tp; content = cont;
+    return style;",0,CVE-2020-7760,CWE-400,codemirror/CodeMirror,55d0333907117c9231ffdf555ae8824705993bbb,javascript
+"function kw(type) {return {type: type, style: ""keyword""};}
+    var A = kw(""keyword a""), B = kw(""keyword b""), C = kw(""keyword c""), D = kw(""keyword d"");
+    var operator = kw(""operator""), atom = {type: ""atom"", style: ""atom""};
+
+    return {
+      ""if"": kw(""if""), ""while"": A, ""with"": A, ""else"": B, ""do"": B, ""try"": B, ""finally"": B,
+      ""return"": D, ""break"": D, ""continue"": D, ""new"": kw(""new""), ""delete"": C, ""void"": C, ""throw"": C,
+      ""debugger"": kw(""debugger""), ""var"": kw(""var""), ""const"": kw(""var""), ""let"": kw(""var""),
+      ""function"": kw(""function""), ""catch"": kw(""catch""),
+      ""for"": kw(""for""), ""switch"": kw(""switch""), ""case"": kw(""case""), ""default"": kw(""default""),
+      ""in"": operator, ""typeof"": operator, ""instanceof"": operator,
+      ""true"": atom, ""false"": atom, ""null"": atom, ""undefined"": atom, ""NaN"": atom, ""Infinity"": atom,
+      ""this"": kw(""this""), ""class"": kw(""class""), ""super"": kw(""atom""),
+      ""yield"": C, ""export"": kw(""export""), ""import"": kw(""import""), ""extends"": C,
+      ""await"": C
+    };
+  }();
+
+  var isOperatorChar = /[+\-*&%=<>!?|~^@]/;
+  var isJsonldKeyword = /^@(context|id|value|language|type|container|list|set|reverse|index|base|vocab|graph)""/;
+
+  function readRegexp(stream) {
+    var escaped = false, next, inSet = false;
+    while ((next = stream.next()) != null) {
+      if (!escaped) {
+        if (next == ""/"" && !inSet) return;
+        if (next == ""["") inSet = true;
+        else if (inSet && next == ""]"") inSet = false;
+      }
+      escaped = !escaped && next == ""\\"";
+    }
+  }
+
+  // Used as scratch variables to communicate multiple values without
+  // consing up tons of objects.
+  var type, content;
+  function ret(tp, style, cont) {
+    type = tp; content = cont;
+    return style;
+  }",0,CVE-2020-7760,CWE-400,codemirror/CodeMirror,55d0333907117c9231ffdf555ae8824705993bbb,javascript
+"function readRegexp(stream) {
+    var escaped = false, next, inSet = false;
+    while ((next = stream.next()) != null) {
+      if (!escaped) {
+        if (next == ""/"" && !inSet) return;
+        if (next == ""["") inSet = true;
+        else if (inSet && next == ""]"") inSet = false;
+      }
+      escaped = !escaped && next == ""\\"";
+    }
+  }
+
+  // Used as scratch variables to communicate multiple values without
+  // consing up tons of objects.
+  var type, content;
+  function ret(tp, style, cont) {
+    type = tp; content = cont;
+    return style;
+  }
+  function tokenBase(stream, state) {
+    var ch = stream.next();
+    if (ch == '""' || ch == ""'"") {
+      state.tokenize = tokenString(ch);
+      return state.tokenize(stream, state);
+    } else if (ch == ""."" && stream.match(/^\d[\d_]*(?:[eE][+\-]?[\d_]+)?/)) {
+      return ret(""number"", ""number"");
+    } else if (ch == ""."" && stream.match("".."")) {
+      return ret(""spread"", ""meta"");
+    } else if (/[\[\]{}\(\),;\:\.]/.test(ch)) {
+      return ret(ch);
+    } else if (ch == ""="" && stream.eat("">"")) {
+      return ret(""=>"", ""operator"");
+    } else if (ch == ""0"" && stream.match(/^(?:x[\dA-Fa-f_]+|o[0-7_]+|b[01_]+)n?/)) {
+      return ret(""number"", ""number"");
+    } else if (/\d/.test(ch)) {
+      stream.match(/^[\d_]*(?:n|(?:\.[\d_]*)?(?:[eE][+\-]?[\d_]+)?)?/);
+      return ret(""number"", ""number"");
+    } else if (ch == ""/"") {
+      if (stream.eat(""*"")) {
+        state.tokenize = tokenComment;",0,CVE-2020-7760,CWE-400,codemirror/CodeMirror,55d0333907117c9231ffdf555ae8824705993bbb,javascript
+"const callback = (err, success) => {
+      if (!success) {
+        sendErrorMessage(req, res, err);
+        return;
+      }
+
+      if (req._query.sid) {
+        debug(""setting new request for existing client"");
+        this.clients[req._query.sid].transport.onRequest(req);
+      } else {
+        this.handshake(req._query.transport, req);
+      }
+    };
+
+    if (this.corsMiddleware) {
+      this.corsMiddleware.call(null, req, res, () => {
+        this.verify(req, false, callback);
+      });
+    } else {
+      this.verify(req, false, callback);
+    }
+  }
+
+  /**
+   * generate a socket id.
+   * Overwrite this method to generate your custom socket id
+   *
+   * @param {Object} request object
+   * @api public
+   */
+  generateId(req) {
+    return base64id.generateId();
+  }
+
+  /**
+   * Handshakes a new client.
+   *
+   * @param {String} transport name
+   * @param {Object} request object
+   * @api private",0,CVE-2020-36048,CWE-400,socketio/engine.io,734f9d1268840722c41219e69eb58318e0b2ac6b,javascript
+"function onUpgradeError() {
+      debug(""websocket error before upgrade"");
+      // socket.close() not needed
+    }
+  }
+
+  /**
+   * Captures upgrade requests for a http.Server.
+   *
+   * @param {http.Server} server
+   * @param {Object} options
+   * @api public
+   */
+  attach(server, options) {
+    const self = this;
+    options = options || {};
+    let path = (options.path || ""/engine.io"").replace(/\/$/, """");
+
+    const destroyUpgradeTimeout = options.destroyUpgradeTimeout || 1000;
+
+    // normalize path
+    path += ""/"";
+
+    function check(req) {
+      return path === req.url.substr(0, path.length);
+    }
+
+    // cache and clean up listeners
+    const listeners = server.listeners(""request"").slice(0);
+    server.removeAllListeners(""request"");
+    server.on(""close"", self.close.bind(self));
+    server.on(""listening"", self.init.bind(self));
+
+    // add request handler
+    server.on(""request"", function(req, res) {
+      if (check(req)) {
+        debug('intercepting request for path ""%s""', path);
+        self.handleRequest(req, res);
+      } else {
+        let i = 0;",0,CVE-2020-36048,CWE-400,socketio/engine.io,734f9d1268840722c41219e69eb58318e0b2ac6b,javascript
+"function check(req) {
+      return path === req.url.substr(0, path.length);
+    }
+
+    // cache and clean up listeners
+    const listeners = server.listeners(""request"").slice(0);
+    server.removeAllListeners(""request"");
+    server.on(""close"", self.close.bind(self));
+    server.on(""listening"", self.init.bind(self));
+
+    // add request handler
+    server.on(""request"", function(req, res) {
+      if (check(req)) {
+        debug('intercepting request for path ""%s""', path);
+        self.handleRequest(req, res);
+      } else {
+        let i = 0;
+        const l = listeners.length;
+        for (; i < l; i++) {
+          listeners[i].call(server, req, res);
+        }
+      }
+    });
+
+    if (~self.opts.transports.indexOf(""websocket"")) {
+      server.on(""upgrade"", function(req, socket, head) {
+        if (check(req)) {
+          self.handleUpgrade(req, socket, head);
+        } else if (false !== options.destroyUpgrade) {
+          // default node behavior is to disconnect when no handlers
+          // but by adding a handler, we prevent that
+          // and if no eio thing handles the upgrade
+          // then the socket needs to die!
+          setTimeout(function() {
+            if (socket.writable && socket.bytesWritten <= 0) {
+              return socket.end();
+            }
+          }, destroyUpgradeTimeout);
+        }
+      });",0,CVE-2020-36048,CWE-400,socketio/engine.io,734f9d1268840722c41219e69eb58318e0b2ac6b,javascript
+"validate: function( options ) {
+
+		// If nothing is selected, return nothing; can't chain anyway
+		if ( !this.length ) {
+			if ( options && options.debug && window.console ) {
+				console.warn( ""Nothing selected, can't validate, returning nothing."" );
+			}
+			return;
+		}
+
+		// Check if a validator for this form was already created
+		var validator = $.data( this[ 0 ], ""validator"" );
+		if ( validator ) {
+			return validator;
+		}
+
+		// Add novalidate tag if HTML5.
+		this.attr( ""novalidate"", ""novalidate"" );
+
+		validator = new $.validator( options, this[ 0 ] );
+		$.data( this[ 0 ], ""validator"", validator );
+
+		if ( validator.settings.onsubmit ) {
+
+			this.on( ""click.validate"", "":submit"", function( event ) {
+
+				// Track the used submit button to properly handle scripted
+				// submits later.
+				validator.submitButton = event.currentTarget;
+
+				// Allow suppressing validation by adding a cancel class to the submit button
+				if ( $( this ).hasClass( ""cancel"" ) ) {
+					validator.cancelSubmit = true;
+				}
+
+				// Allow suppressing validation by adding the html5 formnovalidate attribute to the submit button
+				if ( $( this ).attr( ""formnovalidate"" ) !== undefined ) {
+					validator.cancelSubmit = true;
+				}
+			} );",0,CVE-2021-21252,CWE-400,jquery-validation/jquery-validation,5d8f29eef363d043a8fec4eb86d42cadb5fa5f7d,javascript
+"function handle() {
+					var hidden, result;
+
+					// Insert a hidden input as a replacement for the missing submit button
+					// The hidden input is inserted in two cases:
+					//   - A user defined a `submitHandler`
+					//   - There was a pending request due to `remote` method and `stopRequest()`
+					//     was called to submit the form in case it's valid
+					if ( validator.submitButton && ( validator.settings.submitHandler || validator.formSubmitted ) ) {
+						hidden = $( ""<input type='hidden'/>"" )
+							.attr( ""name"", validator.submitButton.name )
+							.val( $( validator.submitButton ).val() )
+							.appendTo( validator.currentForm );
+					}
+
+					if ( validator.settings.submitHandler && !validator.settings.debug ) {
+						result = validator.settings.submitHandler.call( validator, validator.currentForm, event );
+						if ( hidden ) {
+
+							// And clean up afterwards; thanks to no-block-scope, hidden can be referenced
+							hidden.remove();
+						}
+						if ( result !== undefined ) {
+							return result;
+						}
+						return false;
+					}
+					return true;
+				}
+
+				// Prevent submit for invalid forms or custom submit handlers
+				if ( validator.cancelSubmit ) {
+					validator.cancelSubmit = false;
+					return handle();
+				}
+				if ( validator.form() ) {
+					if ( validator.pendingRequest ) {
+						validator.formSubmitted = true;
+						return false;
+					}",0,CVE-2021-21252,CWE-400,jquery-validation/jquery-validation,5d8f29eef363d043a8fec4eb86d42cadb5fa5f7d,javascript
+"valid: function() {
+		var valid, validator, errorList;
+
+		if ( $( this[ 0 ] ).is( ""form"" ) ) {
+			valid = this.validate().form();
+		} else {
+			errorList = [];
+			valid = true;
+			validator = $( this[ 0 ].form ).validate();
+			this.each( function() {
+				valid = validator.element( this ) && valid;
+				if ( !valid ) {
+					errorList = errorList.concat( validator.errorList );
+				}
+			} );
+			validator.errorList = errorList;
+		}
+		return valid;
+	},
+
+	// https://jqueryvalidation.org/rules/
+	rules: function( command, argument ) {
+		var element = this[ 0 ],
+			isContentEditable = typeof this.attr( ""contenteditable"" ) !== ""undefined"" && this.attr( ""contenteditable"" ) !== ""false"",
+			settings, staticRules, existingRules, data, param, filtered;
+
+		// If nothing is selected, return empty object; can't chain anyway
+		if ( element == null ) {
+			return;
+		}
+
+		if ( !element.form && isContentEditable ) {
+			element.form = this.closest( ""form"" )[ 0 ];
+			element.name = this.attr( ""name"" );
+		}
+
+		if ( element.form == null ) {
+			return;
+		}
+",0,CVE-2021-21252,CWE-400,jquery-validation/jquery-validation,5d8f29eef363d043a8fec4eb86d42cadb5fa5f7d,javascript
+"function createCommonjsModule(fn) {
+  var module = { exports: {} };
+	return fn(module, module.exports), module.exports;
+}
+
+var defaults = createCommonjsModule(function (module) {
+function getDefaults() {
+  return {
+    baseUrl: null,
+    breaks: false,
+    gfm: true,
+    headerIds: true,
+    headerPrefix: '',
+    highlight: null,
+    langPrefix: 'language-',
+    mangle: true,
+    pedantic: false,
+    renderer: null,
+    sanitize: false,
+    sanitizer: null,
+    silent: false,
+    smartLists: false,
+    smartypants: false,
+    tokenizer: null,
+    walkTokens: null,
+    xhtml: false
+  };
+}
+
+function changeDefaults(newDefaults) {
+  module.exports.defaults = newDefaults;
+}
+
+module.exports = {
+  defaults: getDefaults(),
+  getDefaults,
+  changeDefaults
+};
+});
+",0,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function getDefaults() {
+  return {
+    baseUrl: null,
+    breaks: false,
+    gfm: true,
+    headerIds: true,
+    headerPrefix: '',
+    highlight: null,
+    langPrefix: 'language-',
+    mangle: true,
+    pedantic: false,
+    renderer: null,
+    sanitize: false,
+    sanitizer: null,
+    silent: false,
+    smartLists: false,
+    smartypants: false,
+    tokenizer: null,
+    walkTokens: null,
+    xhtml: false
+  };
+}
+
+function changeDefaults(newDefaults) {
+  module.exports.defaults = newDefaults;
+}
+
+module.exports = {
+  defaults: getDefaults(),
+  getDefaults,
+  changeDefaults
+};
+});
+
+/**
+ * Helpers
+ */
+const escapeTest = /[&<>""']/;
+const escapeReplace = /[&<>""']/g;
+const escapeTestNoEncode = /[<>""']|&(?!#?\w+;)/;",0,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function changeDefaults(newDefaults) {
+  module.exports.defaults = newDefaults;
+}
+
+module.exports = {
+  defaults: getDefaults(),
+  getDefaults,
+  changeDefaults
+};
+});
+
+/**
+ * Helpers
+ */
+const escapeTest = /[&<>""']/;
+const escapeReplace = /[&<>""']/g;
+const escapeTestNoEncode = /[<>""']|&(?!#?\w+;)/;
+const escapeReplaceNoEncode = /[<>""']|&(?!#?\w+;)/g;
+const escapeReplacements = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '""': '&quot;',
+  ""'"": '&#39;'
+};
+const getEscapeReplacement = (ch) => escapeReplacements[ch];
+function escape(html, encode) {
+  if (encode) {
+    if (escapeTest.test(html)) {
+      return html.replace(escapeReplace, getEscapeReplacement);
+    }
+  } else {
+    if (escapeTestNoEncode.test(html)) {
+      return html.replace(escapeReplaceNoEncode, getEscapeReplacement);
+    }
+  }
+
+  return html;
+}
+",0,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function _defineProperties(target, props) {
+    for (var i = 0; i < props.length; i++) {
+      var descriptor = props[i];
+      descriptor.enumerable = descriptor.enumerable || false;
+      descriptor.configurable = true;
+      if (""value"" in descriptor) descriptor.writable = true;
+      Object.defineProperty(target, descriptor.key, descriptor);
+    }
+  }
+
+  function _createClass(Constructor, protoProps, staticProps) {
+    if (protoProps) _defineProperties(Constructor.prototype, protoProps);
+    if (staticProps) _defineProperties(Constructor, staticProps);
+    return Constructor;
+  }
+
+  function _unsupportedIterableToArray(o, minLen) {
+    if (!o) return;
+    if (typeof o === ""string"") return _arrayLikeToArray(o, minLen);
+    var n = Object.prototype.toString.call(o).slice(8, -1);
+    if (n === ""Object"" && o.constructor) n = o.constructor.name;
+    if (n === ""Map"" || n === ""Set"") return Array.from(o);
+    if (n === ""Arguments"" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen);
+  }
+
+  function _arrayLikeToArray(arr, len) {
+    if (len == null || len > arr.length) len = arr.length;
+
+    for (var i = 0, arr2 = new Array(len); i < len; i++) arr2[i] = arr[i];
+
+    return arr2;
+  }
+
+  function _createForOfIteratorHelperLoose(o, allowArrayLike) {
+    var it;
+
+    if (typeof Symbol === ""undefined"" || o[Symbol.iterator] == null) {
+      if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === ""number"") {
+        if (it) o = it;
+        var i = 0;",0,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function _createClass(Constructor, protoProps, staticProps) {
+    if (protoProps) _defineProperties(Constructor.prototype, protoProps);
+    if (staticProps) _defineProperties(Constructor, staticProps);
+    return Constructor;
+  }
+
+  function _unsupportedIterableToArray(o, minLen) {
+    if (!o) return;
+    if (typeof o === ""string"") return _arrayLikeToArray(o, minLen);
+    var n = Object.prototype.toString.call(o).slice(8, -1);
+    if (n === ""Object"" && o.constructor) n = o.constructor.name;
+    if (n === ""Map"" || n === ""Set"") return Array.from(o);
+    if (n === ""Arguments"" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen);
+  }
+
+  function _arrayLikeToArray(arr, len) {
+    if (len == null || len > arr.length) len = arr.length;
+
+    for (var i = 0, arr2 = new Array(len); i < len; i++) arr2[i] = arr[i];
+
+    return arr2;
+  }
+
+  function _createForOfIteratorHelperLoose(o, allowArrayLike) {
+    var it;
+
+    if (typeof Symbol === ""undefined"" || o[Symbol.iterator] == null) {
+      if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === ""number"") {
+        if (it) o = it;
+        var i = 0;
+        return function () {
+          if (i >= o.length) return {
+            done: true
+          };
+          return {
+            done: false,
+            value: o[i++]
+          };
+        };
+      }",0,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function _unsupportedIterableToArray(o, minLen) {
+    if (!o) return;
+    if (typeof o === ""string"") return _arrayLikeToArray(o, minLen);
+    var n = Object.prototype.toString.call(o).slice(8, -1);
+    if (n === ""Object"" && o.constructor) n = o.constructor.name;
+    if (n === ""Map"" || n === ""Set"") return Array.from(o);
+    if (n === ""Arguments"" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen);
+  }
+
+  function _arrayLikeToArray(arr, len) {
+    if (len == null || len > arr.length) len = arr.length;
+
+    for (var i = 0, arr2 = new Array(len); i < len; i++) arr2[i] = arr[i];
+
+    return arr2;
+  }
+
+  function _createForOfIteratorHelperLoose(o, allowArrayLike) {
+    var it;
+
+    if (typeof Symbol === ""undefined"" || o[Symbol.iterator] == null) {
+      if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === ""number"") {
+        if (it) o = it;
+        var i = 0;
+        return function () {
+          if (i >= o.length) return {
+            done: true
+          };
+          return {
+            done: false,
+            value: o[i++]
+          };
+        };
+      }
+
+      throw new TypeError(""Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."");
+    }
+
+    it = o[Symbol.iterator]();
+    return it.next.bind(it);",0,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function i(e,t){for(var n=0;n<t.length;n++){var r=t[n];r.enumerable=r.enumerable||!1,r.configurable=!0,""value""in r&&(r.writable=!0),Object.defineProperty(e,r.key,r)}}function s(e,t){(null==t||t>e.length)&&(t=e.length);for(var n=0,r=new Array(t);n<t;n++)r[n]=e[n];return r}function p(e,t){var n;if(""undefined""!=typeof Symbol&&null!=e[Symbol.iterator])return(n=e[Symbol.iterator]()).next.bind(n);if(Array.isArray(e)||(n=function(e,t){if(e){if(""string""==typeof e)return s(e,t);var n=Object.prototype.toString.call(e).slice(8,-1);return""Map""===(n=""Object""===n&&e.constructor?e.constructor.name:n)||""Set""===n?Array.from(e):""Arguments""===n||/^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)?s(e,t):void 0}}(e))||t&&e&&""number""==typeof e.length){n&&(e=n);var r=0;return function(){return r>=e.length?{done:!0}:{done:!1,value:e[r++]}}}throw new TypeError(""Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."")}function n(e){return c[e]}var e,t=(function(t){function e(){return{baseUrl:null,breaks:!1,gfm:!0,headerIds:!0,headerPrefix:"""",highlight:null,langPrefix:""language-"",mangle:!0,pedantic:!1,renderer:null,sanitize:!1,sanitizer:null,silent:!1,smartLists:!1,smartypants:!1,tokenizer:null,walkTokens:null,xhtml:!1}}t.exports={defaults:e(),getDefaults:e,changeDefaults:function(e){t.exports.defaults=e}}}(e={exports:{}}),e.exports),r=/[&<>""']/,l=/[&<>""']/g,a=/[<>""']|&(?!#?\w+;)/,o=/[<>""']|&(?!#?\w+;)/g,c={""&"":""&amp;"",""<"":""&lt;"","">"":""&gt;"",'""':""&quot;"",""'"":""&#39;""};var u=/&(#(?:\d+)|(?:#x[0-9A-Fa-f]+)|(?:\w+));?/gi;function h(e){return e.replace(u,function(e,t){return""colon""===(t=t.toLowerCase())?"":"":""#""===t.charAt(0)?""x""===t.charAt(1)?String.fromCharCode(parseInt(t.substring(2),16)):String.fromCharCode(+t.substring(1)):""""})}var g=/(^|[^\[])\^/g;var f=/[^\w:]/g,d=/^$|^[a-z][a-z0-9+.-]*:|^[?#]/i;var k={},b=/^[^:]+:\/*[^/]*$/,m=/^([^:]+:)[\s\S]*$/,x=/^([^:]+:\/*[^/]*)[\s\S]*$/;function w(e,t){k["" ""+e]||(b.test(e)?k[",0,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function s(e,t){(null==t||t>e.length)&&(t=e.length);for(var n=0,r=new Array(t);n<t;n++)r[n]=e[n];return r}function p(e,t){var n;if(""undefined""!=typeof Symbol&&null!=e[Symbol.iterator])return(n=e[Symbol.iterator]()).next.bind(n);if(Array.isArray(e)||(n=function(e,t){if(e){if(""string""==typeof e)return s(e,t);var n=Object.prototype.toString.call(e).slice(8,-1);return""Map""===(n=""Object""===n&&e.constructor?e.constructor.name:n)||""Set""===n?Array.from(e):""Arguments""===n||/^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)?s(e,t):void 0}}(e))||t&&e&&""number""==typeof e.length){n&&(e=n);var r=0;return function(){return r>=e.length?{done:!0}:{done:!1,value:e[r++]}}}throw new TypeError(""Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."")}function n(e){return c[e]}var e,t=(function(t){function e(){return{baseUrl:null,breaks:!1,gfm:!0,headerIds:!0,headerPrefix:"""",highlight:null,langPrefix:""language-"",mangle:!0,pedantic:!1,renderer:null,sanitize:!1,sanitizer:null,silent:!1,smartLists:!1,smartypants:!1,tokenizer:null,walkTokens:null,xhtml:!1}}t.exports={defaults:e(),getDefaults:e,changeDefaults:function(e){t.exports.defaults=e}}}(e={exports:{}}),e.exports),r=/[&<>""']/,l=/[&<>""']/g,a=/[<>""']|&(?!#?\w+;)/,o=/[<>""']|&(?!#?\w+;)/g,c={""&"":""&amp;"",""<"":""&lt;"","">"":""&gt;"",'""':""&quot;"",""'"":""&#39;""};var u=/&(#(?:\d+)|(?:#x[0-9A-Fa-f]+)|(?:\w+));?/gi;function h(e){return e.replace(u,function(e,t){return""colon""===(t=t.toLowerCase())?"":"":""#""===t.charAt(0)?""x""===t.charAt(1)?String.fromCharCode(parseInt(t.substring(2),16)):String.fromCharCode(+t.substring(1)):""""})}var g=/(^|[^\[])\^/g;var f=/[^\w:]/g,d=/^$|^[a-z][a-z0-9+.-]*:|^[?#]/i;var k={},b=/^[^:]+:\/*[^/]*$/,m=/^([^:]+:)[\s\S]*$/,x=/^([^:]+:\/*[^/]*)[\s\S]*$/;function w(e,t){k["" ""+e]||(b.test(e)?k["" ""+e]=e+""/"":k["" ""+e]=v(e,""/"",!0));var n=-1===(e=k["" ""+e]).indexOf("":"");return""//""===t.substring(0,2)?n?t:e.replace(m,""$1"")+t:""/""===t.charAt(0)?n?t:e.replace(x,""$1"")+",0,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function p(e,t){var n;if(""undefined""!=typeof Symbol&&null!=e[Symbol.iterator])return(n=e[Symbol.iterator]()).next.bind(n);if(Array.isArray(e)||(n=function(e,t){if(e){if(""string""==typeof e)return s(e,t);var n=Object.prototype.toString.call(e).slice(8,-1);return""Map""===(n=""Object""===n&&e.constructor?e.constructor.name:n)||""Set""===n?Array.from(e):""Arguments""===n||/^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)?s(e,t):void 0}}(e))||t&&e&&""number""==typeof e.length){n&&(e=n);var r=0;return function(){return r>=e.length?{done:!0}:{done:!1,value:e[r++]}}}throw new TypeError(""Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."")}function n(e){return c[e]}var e,t=(function(t){function e(){return{baseUrl:null,breaks:!1,gfm:!0,headerIds:!0,headerPrefix:"""",highlight:null,langPrefix:""language-"",mangle:!0,pedantic:!1,renderer:null,sanitize:!1,sanitizer:null,silent:!1,smartLists:!1,smartypants:!1,tokenizer:null,walkTokens:null,xhtml:!1}}t.exports={defaults:e(),getDefaults:e,changeDefaults:function(e){t.exports.defaults=e}}}(e={exports:{}}),e.exports),r=/[&<>""']/,l=/[&<>""']/g,a=/[<>""']|&(?!#?\w+;)/,o=/[<>""']|&(?!#?\w+;)/g,c={""&"":""&amp;"",""<"":""&lt;"","">"":""&gt;"",'""':""&quot;"",""'"":""&#39;""};var u=/&(#(?:\d+)|(?:#x[0-9A-Fa-f]+)|(?:\w+));?/gi;function h(e){return e.replace(u,function(e,t){return""colon""===(t=t.toLowerCase())?"":"":""#""===t.charAt(0)?""x""===t.charAt(1)?String.fromCharCode(parseInt(t.substring(2),16)):String.fromCharCode(+t.substring(1)):""""})}var g=/(^|[^\[])\^/g;var f=/[^\w:]/g,d=/^$|^[a-z][a-z0-9+.-]*:|^[?#]/i;var k={},b=/^[^:]+:\/*[^/]*$/,m=/^([^:]+:)[\s\S]*$/,x=/^([^:]+:\/*[^/]*)[\s\S]*$/;function w(e,t){k["" ""+e]||(b.test(e)?k["" ""+e]=e+""/"":k["" ""+e]=v(e,""/"",!0));var n=-1===(e=k["" ""+e]).indexOf("":"");return""//""===t.substring(0,2)?n?t:e.replace(m,""$1"")+t:""/""===t.charAt(0)?n?t:e.replace(x,""$1"")+t:e+t}function v(e,t,n){var r=e.length;if(0===r)return"""";for(var i=0;i<r;){var s=e.charAt(r-i-1);if(s!==t|",0,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function smartypants(text) {
+  return text
+    // em-dashes
+    .replace(/---/g, '\u2014')
+    // en-dashes
+    .replace(/--/g, '\u2013')
+    // opening singles
+    .replace(/(^|[-\u2014/(\[{""\s])'/g, '$1\u2018')
+    // closing singles & apostrophes
+    .replace(/'/g, '\u2019')
+    // opening doubles
+    .replace(/(^|[-\u2014/(\[{\u2018\s])""/g, '$1\u201c')
+    // closing doubles
+    .replace(/""/g, '\u201d')
+    // ellipses
+    .replace(/\.{3}/g, '\u2026');
+}
+
+/**
+ * mangle email addresses
+ */
+function mangle(text) {
+  let out = '',
+    i,
+    ch;
+
+  const l = text.length;
+  for (i = 0; i < l; i++) {
+    ch = text.charCodeAt(i);
+    if (Math.random() > 0.5) {
+      ch = 'x' + ch.toString(16);
+    }
+    out += '&#' + ch + ';';
+  }
+
+  return out;
+}
+
+/**
+ * Block Lexer",0,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function mangle(text) {
+  let out = '',
+    i,
+    ch;
+
+  const l = text.length;
+  for (i = 0; i < l; i++) {
+    ch = text.charCodeAt(i);
+    if (Math.random() > 0.5) {
+      ch = 'x' + ch.toString(16);
+    }
+    out += '&#' + ch + ';';
+  }
+
+  return out;
+}
+
+/**
+ * Block Lexer
+ */
+module.exports = class Lexer {
+  constructor(options) {
+    this.tokens = [];
+    this.tokens.links = Object.create(null);
+    this.options = options || defaults;
+    this.options.tokenizer = this.options.tokenizer || new Tokenizer();
+    this.tokenizer = this.options.tokenizer;
+    this.tokenizer.options = this.options;
+
+    const rules = {
+      block: block.normal,
+      inline: inline.normal
+    };
+
+    if (this.options.pedantic) {
+      rules.block = block.pedantic;
+      rules.inline = inline.pedantic;
+    } else if (this.options.gfm) {
+      rules.block = block.gfm;
+      if (this.options.breaks) {",0,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function outputLink(cap, link, raw) {
+  const href = link.href;
+  const title = link.title ? escape(link.title) : null;
+  const text = cap[1].replace(/\\([\[\]])/g, '$1');
+
+  if (cap[0].charAt(0) !== '!') {
+    return {
+      type: 'link',
+      raw,
+      href,
+      title,
+      text
+    };
+  } else {
+    return {
+      type: 'image',
+      raw,
+      href,
+      title,
+      text: escape(text)
+    };
+  }
+}
+
+function indentCodeCompensation(raw, text) {
+  const matchIndentToCode = raw.match(/^(\s+)(?:```)/);
+
+  if (matchIndentToCode === null) {
+    return text;
+  }
+
+  const indentToCode = matchIndentToCode[1];
+
+  return text
+    .split('\n')
+    .map(node => {
+      const matchIndentInNode = node.match(/^\s+/);
+      if (matchIndentInNode === null) {
+        return node;
+      }",0,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function indentCodeCompensation(raw, text) {
+  const matchIndentToCode = raw.match(/^(\s+)(?:```)/);
+
+  if (matchIndentToCode === null) {
+    return text;
+  }
+
+  const indentToCode = matchIndentToCode[1];
+
+  return text
+    .split('\n')
+    .map(node => {
+      const matchIndentInNode = node.match(/^\s+/);
+      if (matchIndentInNode === null) {
+        return node;
+      }
+
+      const [indentInNode] = matchIndentInNode;
+
+      if (indentInNode.length >= indentToCode.length) {
+        return node.slice(indentToCode.length);
+      }
+
+      return node;
+    })
+    .join('\n');
+}
+
+/**
+ * Tokenizer
+ */
+module.exports = class Tokenizer {
+  constructor(options) {
+    this.options = options || defaults;
+  }
+
+  space(src) {
+    const cap = this.rules.block.newline.exec(src);
+    if (cap) {
+      if (cap[0].length > 1) {",0,CVE-2021-21306,CWE-400,markedjs/marked,7293251c438e3ee968970f7609f1a27f9007bccd,javascript
+"function addListeners(server, map) {
+  for (const event of Object.keys(map)) server.on(event, map[event]);
+
+  return function removeListeners() {
+    for (const event of Object.keys(map)) {
+      server.removeListener(event, map[event]);
+    }
+  };
+}
+
+/**
+ * Emit a `'close'` event on an `EventEmitter`.
+ *
+ * @param {EventEmitter} server The event emitter
+ * @private
+ */
+function emitClose(server) {
+  server.emit('close');
+}
+
+/**
+ * Handle premature socket errors.
+ *
+ * @private
+ */
+function socketOnError() {
+  this.destroy();
+}
+
+/**
+ * Close the connection when preconditions are not fulfilled.
+ *
+ * @param {net.Socket} socket The socket of the upgrade request
+ * @param {Number} code The HTTP response status code
+ * @param {String} [message] The HTTP response body
+ * @param {Object} [headers] Additional HTTP response headers
+ * @private
+ */
+function abortHandshake(socket, code, message, headers) {
+  if (socket.writable) {",0,CVE-2021-32640,CWE-400,websockets/ws,00c425ec77993773d823f018f64a5c44e17023ff,javascript
+"function removeListeners() {
+    for (const event of Object.keys(map)) {
+      server.removeListener(event, map[event]);
+    }
+  };
+}
+
+/**
+ * Emit a `'close'` event on an `EventEmitter`.
+ *
+ * @param {EventEmitter} server The event emitter
+ * @private
+ */
+function emitClose(server) {
+  server.emit('close');
+}
+
+/**
+ * Handle premature socket errors.
+ *
+ * @private
+ */
+function socketOnError() {
+  this.destroy();
+}
+
+/**
+ * Close the connection when preconditions are not fulfilled.
+ *
+ * @param {net.Socket} socket The socket of the upgrade request
+ * @param {Number} code The HTTP response status code
+ * @param {String} [message] The HTTP response body
+ * @param {Object} [headers] Additional HTTP response headers
+ * @private
+ */
+function abortHandshake(socket, code, message, headers) {
+  if (socket.writable) {
+    message = message || STATUS_CODES[code];
+    headers = {
+      Connection: 'close',",0,CVE-2021-32640,CWE-400,websockets/ws,00c425ec77993773d823f018f64a5c44e17023ff,javascript
+"function emitClose(server) {
+  server.emit('close');
+}
+
+/**
+ * Handle premature socket errors.
+ *
+ * @private
+ */
+function socketOnError() {
+  this.destroy();
+}
+
+/**
+ * Close the connection when preconditions are not fulfilled.
+ *
+ * @param {net.Socket} socket The socket of the upgrade request
+ * @param {Number} code The HTTP response status code
+ * @param {String} [message] The HTTP response body
+ * @param {Object} [headers] Additional HTTP response headers
+ * @private
+ */
+function abortHandshake(socket, code, message, headers) {
+  if (socket.writable) {
+    message = message || STATUS_CODES[code];
+    headers = {
+      Connection: 'close',
+      'Content-Type': 'text/html',
+      'Content-Length': Buffer.byteLength(message),
+      ...headers
+    };
+
+    socket.write(
+      `HTTP/1.1 ${code} ${STATUS_CODES[code]}\r\n` +
+        Object.keys(headers)
+          .map((h) => `${h}: ${headers[h]}`)
+          .join('\r\n') +
+        '\r\n\r\n' +
+        message
+    );",0,CVE-2021-32640,CWE-400,websockets/ws,00c425ec77993773d823f018f64a5c44e17023ff,javascript
+"function parse (jsonString) {
+  try {
+    return JSON.parse(jsonString)
+  } catch (err) {
+    // try to throw a more detailed error message using validate
+    validate(jsonString)
+
+    // rethrow the original error
+    throw err
+  }
+}
+
+/**
+ * Try to fix the JSON string. If not successful, return the original string
+ * @param {string} jsonString
+ */
+export function tryJsonRepair (jsonString) {
+  try {
+    return jsonrepair(jsonString)
+  } catch (err) {
+    // repair was not successful, return original text
+    return jsonString
+  }
+}
+
+/**
+ * Escape unicode characters.
+ * For example input '\u2661' (length 1) will output '\\u2661' (length 5).
+ * @param {string} text
+ * @return {string}
+ */
+export function escapeUnicodeChars (
+  // see https://www.wikiwand.com/en/UTF-16
+  text
+) {
+  return (
+    // note: we leave surrogate pairs as two individual chars,
+    // as JSON doesn't interpret them as a single unicode char.
+    text.replace(
+      /[\u007F-\uFFFF]/g,",0,CVE-2021-3822,CWE-400,josdejong/jsoneditor,092e386cf49f2a1450625617da8e0137ed067c3e,javascript
+"function tryJsonRepair (jsonString) {
+  try {
+    return jsonrepair(jsonString)
+  } catch (err) {
+    // repair was not successful, return original text
+    return jsonString
+  }
+}
+
+/**
+ * Escape unicode characters.
+ * For example input '\u2661' (length 1) will output '\\u2661' (length 5).
+ * @param {string} text
+ * @return {string}
+ */
+export function escapeUnicodeChars (
+  // see https://www.wikiwand.com/en/UTF-16
+  text
+) {
+  return (
+    // note: we leave surrogate pairs as two individual chars,
+    // as JSON doesn't interpret them as a single unicode char.
+    text.replace(
+      /[\u007F-\uFFFF]/g,
+      c => '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4)
+    )
+  )
+}
+
+/**
+ * Validate a string containing a JSON object
+ * This method uses JSONLint to validate the String. If JSONLint is not
+ * available, the built-in JSON parser of the browser is used.
+ * @param {String} jsonString   String with an (invalid) JSON object
+ * @throws Error
+ */
+export function validate (jsonString) {
+  if (typeof (jsonlint) !== 'undefined') {
+    jsonlint.parse(jsonString)
+  } else {",0,CVE-2021-3822,CWE-400,josdejong/jsoneditor,092e386cf49f2a1450625617da8e0137ed067c3e,javascript
+"function escapeUnicodeChars (
+  // see https://www.wikiwand.com/en/UTF-16
+  text
+) {
+  return (
+    // note: we leave surrogate pairs as two individual chars,
+    // as JSON doesn't interpret them as a single unicode char.
+    text.replace(
+      /[\u007F-\uFFFF]/g,
+      c => '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4)
+    )
+  )
+}
+
+/**
+ * Validate a string containing a JSON object
+ * This method uses JSONLint to validate the String. If JSONLint is not
+ * available, the built-in JSON parser of the browser is used.
+ * @param {String} jsonString   String with an (invalid) JSON object
+ * @throws Error
+ */
+export function validate (jsonString) {
+  if (typeof (jsonlint) !== 'undefined') {
+    jsonlint.parse(jsonString)
+  } else {
+    JSON.parse(jsonString)
+  }
+}
+
+/**
+ * Extend object a with the properties of object b
+ * @param {Object} a
+ * @param {Object} b
+ * @return {Object} a
+ */
+export function extend (a, b) {
+  for (const prop in b) {
+    if (hasOwnProperty(b, prop)) {
+      a[prop] = b[prop]
+    }",0,CVE-2021-3822,CWE-400,josdejong/jsoneditor,092e386cf49f2a1450625617da8e0137ed067c3e,javascript
+"function _adjust_publishing_interval(publishingInterval?: number): number {
+    publishingInterval =
+        publishingInterval === undefined || Number.isNaN(publishingInterval)
+            ? Subscription.defaultPublishingInterval
+            : publishingInterval;
+    publishingInterval = Math.max(publishingInterval, Subscription.minimumPublishingInterval);
+    publishingInterval = Math.min(publishingInterval, Subscription.maximumPublishingInterval);
+    return publishingInterval;
+}
+
+const minimumMaxKeepAliveCount = 2;
+const maximumMaxKeepAliveCount = 12000;
+
+function _adjust_maxKeepAliveCount(maxKeepAliveCount?: number /*,publishingInterval*/): number {
+    maxKeepAliveCount = maxKeepAliveCount || minimumMaxKeepAliveCount;
+    maxKeepAliveCount = Math.max(maxKeepAliveCount, minimumMaxKeepAliveCount);
+    maxKeepAliveCount = Math.min(maxKeepAliveCount, maximumMaxKeepAliveCount);
+    return maxKeepAliveCount;
+}
+
+function _adjust_lifeTimeCount(lifeTimeCount: number, maxKeepAliveCount: number, publishingInterval: number): number {
+    lifeTimeCount = lifeTimeCount || 1;
+
+    // let's make sure that lifeTimeCount is at least three time maxKeepAliveCount
+    // Note : the specs say ( part 3  - CreateSubscriptionParameter )
+    //        ""The lifetime count shall be a minimum of three times the keep keep-alive count.""
+    lifeTimeCount = Math.max(lifeTimeCount, maxKeepAliveCount * 3);
+
+    const minTicks = Math.ceil(Subscription.minimumLifetimeDuration / publishingInterval);
+    const maxTicks = Math.floor(Subscription.maximumLifetimeDuration / publishingInterval);
+
+    lifeTimeCount = Math.max(minTicks, lifeTimeCount);
+    lifeTimeCount = Math.min(maxTicks, lifeTimeCount);
+    return lifeTimeCount;
+}
+
+function _adjust_publishingEnable(publishingEnabled?: boolean | null): boolean {
+    return publishingEnabled === null || publishingEnabled === undefined ? true : !!publishingEnabled;
+}
+",0,CVE-2022-24375,CWE-400,node-opcua/node-opcua,3fd46ec156e7718a506be41f3916310b6bdd0407,javascript
+"function _adjust_maxKeepAliveCount(maxKeepAliveCount?: number /*,publishingInterval*/): number {
+    maxKeepAliveCount = maxKeepAliveCount || minimumMaxKeepAliveCount;
+    maxKeepAliveCount = Math.max(maxKeepAliveCount, minimumMaxKeepAliveCount);
+    maxKeepAliveCount = Math.min(maxKeepAliveCount, maximumMaxKeepAliveCount);
+    return maxKeepAliveCount;
+}
+
+function _adjust_lifeTimeCount(lifeTimeCount: number, maxKeepAliveCount: number, publishingInterval: number): number {
+    lifeTimeCount = lifeTimeCount || 1;
+
+    // let's make sure that lifeTimeCount is at least three time maxKeepAliveCount
+    // Note : the specs say ( part 3  - CreateSubscriptionParameter )
+    //        ""The lifetime count shall be a minimum of three times the keep keep-alive count.""
+    lifeTimeCount = Math.max(lifeTimeCount, maxKeepAliveCount * 3);
+
+    const minTicks = Math.ceil(Subscription.minimumLifetimeDuration / publishingInterval);
+    const maxTicks = Math.floor(Subscription.maximumLifetimeDuration / publishingInterval);
+
+    lifeTimeCount = Math.max(minTicks, lifeTimeCount);
+    lifeTimeCount = Math.min(maxTicks, lifeTimeCount);
+    return lifeTimeCount;
+}
+
+function _adjust_publishingEnable(publishingEnabled?: boolean | null): boolean {
+    return publishingEnabled === null || publishingEnabled === undefined ? true : !!publishingEnabled;
+}
+
+function _adjust_maxNotificationsPerPublish(maxNotificationsPerPublish?: number): number {
+    assert(Subscription.maxNotificationPerPublishHighLimit > 0, ""Subscription.maxNotificationPerPublishHighLimit must be positive"");
+
+    maxNotificationsPerPublish = maxNotificationsPerPublish || 0;
+    assert(typeof maxNotificationsPerPublish === ""number"");
+
+    // must be strictly positive
+    maxNotificationsPerPublish = maxNotificationsPerPublish >= 0 ? maxNotificationsPerPublish : 0;
+
+    if (maxNotificationsPerPublish === 0) {
+        // if zero then => use our HighLimit
+        maxNotificationsPerPublish = Subscription.maxNotificationPerPublishHigh",0,CVE-2022-24375,CWE-400,node-opcua/node-opcua,3fd46ec156e7718a506be41f3916310b6bdd0407,javascript
+"function _adjust_lifeTimeCount(lifeTimeCount: number, maxKeepAliveCount: number, publishingInterval: number): number {
+    lifeTimeCount = lifeTimeCount || 1;
+
+    // let's make sure that lifeTimeCount is at least three time maxKeepAliveCount
+    // Note : the specs say ( part 3  - CreateSubscriptionParameter )
+    //        ""The lifetime count shall be a minimum of three times the keep keep-alive count.""
+    lifeTimeCount = Math.max(lifeTimeCount, maxKeepAliveCount * 3);
+
+    const minTicks = Math.ceil(Subscription.minimumLifetimeDuration / publishingInterval);
+    const maxTicks = Math.floor(Subscription.maximumLifetimeDuration / publishingInterval);
+
+    lifeTimeCount = Math.max(minTicks, lifeTimeCount);
+    lifeTimeCount = Math.min(maxTicks, lifeTimeCount);
+    return lifeTimeCount;
+}
+
+function _adjust_publishingEnable(publishingEnabled?: boolean | null): boolean {
+    return publishingEnabled === null || publishingEnabled === undefined ? true : !!publishingEnabled;
+}
+
+function _adjust_maxNotificationsPerPublish(maxNotificationsPerPublish?: number): number {
+    assert(Subscription.maxNotificationPerPublishHighLimit > 0, ""Subscription.maxNotificationPerPublishHighLimit must be positive"");
+
+    maxNotificationsPerPublish = maxNotificationsPerPublish || 0;
+    assert(typeof maxNotificationsPerPublish === ""number"");
+
+    // must be strictly positive
+    maxNotificationsPerPublish = maxNotificationsPerPublish >= 0 ? maxNotificationsPerPublish : 0;
+
+    if (maxNotificationsPerPublish === 0) {
+        // if zero then => use our HighLimit
+        maxNotificationsPerPublish = Subscription.maxNotificationPerPublishHighLimit;
+    } else {
+        // if not zero then should be capped by maxNotificationPerPublishHighLimit
+        maxNotificationsPerPublish = Math.min(Subscription.maxNotificationPerPublishHighLimit, maxNotificationsPerPublish);
+    }
+
+    assert(maxNotificationsPerPublish !== 0 && maxNotificationsPerPublish <= Subscription.maxNotificationPerPublishHighLimit)",0,CVE-2022-24375,CWE-400,node-opcua/node-opcua,3fd46ec156e7718a506be41f3916310b6bdd0407,javascript
+"function reconstruct_fake_publish_engine() {
+    fake_publish_engine = getFakePublishEngine();
+}
+
+// eslint-disable-next-line import/order
+const describe = require(""node-opcua-leak-detector"").describeWithLeakDetector;
+describe(""Subscriptions"", function () {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const test = this;
+    beforeEach(function () {
+        test.clock = sinon.useFakeTimers();
+        reconstruct_fake_publish_engine();
+    });
+
+    afterEach(function () {
+        test.clock.restore();
+    });
+
+    it(""T1 - a subscription will make sure that lifeTimeCount is at least 3 times maxKeepAliveCount"", function () {
+        {
+            const subscription1 = new Subscription({
+                publishingInterval: 1000,
+                maxKeepAliveCount: 20,
+                lifeTimeCount: 60, // at least 3 times maxKeepAliveCount
+                //
+                publishEngine: fake_publish_engine,
+                globalCounter: { totalMonitoredItemCount: 0 },
+                serverCapabilities: { maxMonitoredItems: 10000, maxMonitoredItemsPerSubscription: 1000 }
+            });
+            subscription1.maxKeepAliveCount.should.eql(20);
+            subscription1.lifeTimeCount.should.eql(
+                60,
+                ""lifeTimeCount shall be unchanged because it is at least 3 times maxKeepAliveCount""
+            );
+
+            subscription1.terminate();
+            subscription1.dispose();
+        }
+        {
+            const subscription2 = new Subscription({",0,CVE-2022-24375,CWE-400,node-opcua/node-opcua,3fd46ec156e7718a506be41f3916310b6bdd0407,javascript
+"function add_mock_monitored_item2(subscription, someVariableNode) {
+            const monitoredItemCreateRequest = new MonitoredItemCreateRequest({
+                itemToMonitor: { nodeId: someVariableNode },
+                monitoringMode: MonitoringMode.Reporting,
+                requestedParameters: {
+                    clientHandle: 123,
+                    queueSize: 10,
+                    samplingInterval: 200
+                }
+            });
+            const createResult = subscription.createMonitoredItem(
+                addressSpace,
+                TimestampsToReturn.Both,
+                monitoredItemCreateRequest
+            );
+            const monitoredItem = subscription.getMonitoredItem(createResult.monitoredItemId);
+
+            return monitoredItem;
+        }
+
+        before(function (done) {
+            engine = new ServerEngine();
+            engine.initialize({ nodeset_filename: mini_nodeset_filename }, function () {
+                addressSpace = engine.addressSpace;
+                namespace = addressSpace.getOwnNamespace();
+
+                const node = namespace.addVariable({
+                    componentOf: ""RootFolder"",
+                    browseName: ""SomeVariable"",
+                    dataType: ""UInt32"",
+                    value: { dataType: DataType.UInt32, value: 0 }
+                });
+                someVariableNode = node.nodeId;
+                done();
+            });
+        });
+        after(async () => {
+            await engine.shutdown();
+            engine = null;
+        });",0,CVE-2022-24375,CWE-400,node-opcua/node-opcua,3fd46ec156e7718a506be41f3916310b6bdd0407,javascript
+"function simulate_client_adding_publish_request(publishEngine, callback) {
+            const publishRequest = new PublishRequest({});
+            publishEngine._on_PublishRequest(publishRequest, callback);
+            test.clock.tick(0);
+        }
+
+        let subscription;
+        let notification_event_spy, keepalive_event_spy, expire_event_spy;
+
+        beforeEach(function () {
+            publish_engine = new ServerSidePublishEngine();
+            subscription = new Subscription({
+                id: 1000,
+                publishingInterval: 100,
+                maxKeepAliveCount: 10,
+                lifeTimeCount: 30,
+                publishingEnabled: true,
+                publishEngine: publish_engine,
+                globalCounter: { totalMonitoredItemCount: 0 },
+                serverCapabilities: { maxMonitoredItems: 10000, maxMonitoredItemsPerSubscription: 1000 }
+            });
+            publish_engine.add_subscription(subscription);
+
+            notification_event_spy = sinon.spy();
+            keepalive_event_spy = sinon.spy();
+            expire_event_spy = sinon.spy();
+            subscription.on(""notification"", notification_event_spy);
+            subscription.on(""keepalive"", keepalive_event_spy);
+            subscription.on(""expired"", expire_event_spy);
+
+            subscription.on(""monitoredItem"", function (monitoredItem) {
+                monitoredItem.samplingFunc = function () {
+                    /**  */
+                };
+            });
+        });
+
+        afterEach(function (done) {
+            subscription.on(""terminated"", function () {
+                done();",0,CVE-2022-24375,CWE-400,node-opcua/node-opcua,3fd46ec156e7718a506be41f3916310b6bdd0407,javascript
